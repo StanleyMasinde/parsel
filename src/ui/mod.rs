@@ -418,7 +418,7 @@ impl App {
             .split(frame.area());
 
         // Header
-        let title = Paragraph::new("Parsel - Tame your APIs from the terminal")
+        let title = Paragraph::new("Parsel - Test your APIs from the terminal")
             .block(Block::default().borders(Borders::ALL))
             .style(
                 Style::default()
