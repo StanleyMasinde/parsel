@@ -441,11 +441,11 @@ impl App {
 
         let url_title = format!("{:?}", self.request.method);
         let url_style = if self.active_panel == Panel::Url && self.mode == Mode::Edit {
-            Style::default().fg(Color::White).bg(Color::DarkGray)
+            Style::default().bg(Color::DarkGray)
         } else if self.active_panel == Panel::Url {
-            Style::default().fg(Color::White).bg(Color::Blue)
+            Style::default().bg(Color::Blue)
         } else {
-            Style::default().fg(Color::White)
+            Style::default()
         };
 
         let url_display = self.request.url.to_string();
