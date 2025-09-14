@@ -1,12 +1,15 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use ratatui::{
     Frame,
-    crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
-    layout::{Alignment, Constraint, Direction, Layout},
+    crossterm::{
+        self,
+        event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
+    },
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
 };
 use tui_input::{Input, InputRequest};
 
@@ -95,6 +98,8 @@ struct App {
     editing_header_key: bool,
     new_header_key: String,
     new_header_value: String,
+    tx: std::sync::mpsc::Sender<Response>,
+    rx: std::sync::mpsc::Receiver<Response>,
 }
 
 impl Default for Request {
@@ -113,6 +118,7 @@ impl Default for Request {
 
 impl App {
     fn new() -> Self {
+        let (tx, rx) = std::sync::mpsc::channel();
         Self {
             request: Request::default(),
             response: None,
@@ -125,6 +131,8 @@ impl App {
             editing_header_key: true,
             new_header_key: String::new(),
             new_header_value: String::new(),
+            tx,
+            rx,
         }
     }
 
@@ -392,17 +400,22 @@ impl App {
 
     fn send_request(&mut self) {
         self.is_loading = true;
-        let res = http::get(&self.request.url.to_string(), self.request.headers.clone()).unwrap();
-        let resp = Response {
-            status_code: res.status.into(),
-            status_text: res.status_text,
-            headers: res.headers,
-            body: res.body,
-            duration_ms: res.elapsed,
-        };
-        self.response = Some(resp);
-        self.history.push(self.request.clone());
-        self.is_loading = false;
+
+        let url = self.request.url.to_string();
+        let headers = self.request.headers.clone();
+        let tx = self.tx.clone(); // channel to send result back (add to App)
+
+        std::thread::spawn(move || {
+            let res = http::get(&url, headers).unwrap();
+            let resp = Response {
+                status_code: res.status.into(),
+                status_text: res.status_text,
+                headers: res.headers,
+                body: res.body,
+                duration_ms: res.elapsed,
+            };
+            tx.send(resp).unwrap();
+        });
     }
 
     fn render(&self, frame: &mut Frame) {
@@ -526,6 +539,20 @@ impl App {
         ]))
         .block(Block::default().borders(Borders::ALL));
         frame.render_widget(status_bar, main_layout[3]);
+
+        // Temporary loading indicator
+        if self.is_loading {
+            let loading_area = Rect {
+                x: frame.area().width / 2 - 10,
+                y: frame.area().height / 2,
+                width: 20,
+                height: 3,
+            };
+            frame.render_widget(Clear, loading_area); // clear what's behind
+            let loading_indicator = Paragraph::new("Please wait...")
+                .block(Block::default().borders(Borders::ALL).title("Loading"));
+            frame.render_widget(loading_indicator, loading_area);
+        }
     }
 
     fn render_headers_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
@@ -670,6 +697,12 @@ impl App {
     }
 }
 
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut terminal = ratatui::init();
     let mut app = App::new();
@@ -677,10 +710,17 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         terminal.draw(|frame| app.render(frame))?;
 
-        if let Event::Key(key) = event::read()?
+        if crossterm::event::poll(Duration::from_millis(100))?
+            && let Event::Key(key) = event::read()?
             && key.kind == KeyEventKind::Press
         {
             app.handle_key(key.code, key.modifiers);
+        }
+
+        // <-- poll for finished background request
+        if let Ok(resp) = app.rx.try_recv() {
+            app.response = Some(resp);
+            app.is_loading = false;
         }
 
         if app.should_quit {
