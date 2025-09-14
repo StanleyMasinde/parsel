@@ -1,0 +1,693 @@
+use std::collections::HashMap;
+
+use ratatui::{
+    Frame,
+    crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
+    layout::{Alignment, Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
+};
+use tui_input::{Input, InputRequest};
+
+use crate::http;
+
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug, Clone, PartialEq)]
+enum HttpMethod {
+    GET,
+    POST,
+    PUT,
+    DELETE,
+    PATCH,
+    HEAD,
+    OPTIONS,
+}
+
+impl HttpMethod {
+    fn next(&self) -> Self {
+        match self {
+            HttpMethod::GET => HttpMethod::POST,
+            HttpMethod::POST => HttpMethod::PUT,
+            HttpMethod::PUT => HttpMethod::DELETE,
+            HttpMethod::DELETE => HttpMethod::PATCH,
+            HttpMethod::PATCH => HttpMethod::HEAD,
+            HttpMethod::HEAD => HttpMethod::OPTIONS,
+            HttpMethod::OPTIONS => HttpMethod::GET,
+        }
+    }
+
+    fn prev(&self) -> Self {
+        match self {
+            HttpMethod::GET => HttpMethod::OPTIONS,
+            HttpMethod::POST => HttpMethod::GET,
+            HttpMethod::PUT => HttpMethod::POST,
+            HttpMethod::DELETE => HttpMethod::PUT,
+            HttpMethod::PATCH => HttpMethod::DELETE,
+            HttpMethod::HEAD => HttpMethod::PATCH,
+            HttpMethod::OPTIONS => HttpMethod::HEAD,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Request {
+    method: HttpMethod,
+    url: Input,
+    headers: Vec<(String, String)>,
+    body: Input,
+}
+
+#[derive(Debug)]
+struct Response {
+    status_code: u16,
+    status_text: String,
+    headers: HashMap<String, String>,
+    body: String,
+    duration_ms: u128,
+}
+
+#[derive(Debug, PartialEq)]
+enum Panel {
+    Url,
+    Headers,
+    Body,
+    Response,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Mode {
+    Normal,
+    Edit,
+    HeaderEdit,
+}
+
+#[derive(Debug)]
+struct App {
+    request: Request,
+    response: Option<Response>,
+    history: Vec<Request>,
+    active_panel: Panel,
+    should_quit: bool,
+    is_loading: bool,
+    mode: Mode,
+    selected_header: usize,
+    editing_header_key: bool,
+    new_header_key: String,
+    new_header_value: String,
+}
+
+impl Default for Request {
+    fn default() -> Self {
+        Self {
+            method: HttpMethod::GET,
+            url: "https://httpbin.org/get".into(),
+            headers: vec![
+                ("Content-Type".to_string(), "application/json".to_string()),
+                ("User-Agent".to_string(), "Parsel/1.0".to_string()),
+            ],
+            body: "".into(),
+        }
+    }
+}
+
+impl App {
+    fn new() -> Self {
+        Self {
+            request: Request::default(),
+            response: None,
+            history: vec![],
+            active_panel: Panel::Url,
+            should_quit: false,
+            is_loading: false,
+            mode: Mode::Normal,
+            selected_header: 0,
+            editing_header_key: true,
+            new_header_key: String::new(),
+            new_header_value: String::new(),
+        }
+    }
+
+    fn handle_key(&mut self, key: KeyCode, modifiers: KeyModifiers) {
+        match (self.mode, key, modifiers) {
+            // Global quit
+            (_, KeyCode::Char('c'), KeyModifiers::CONTROL) => self.should_quit = true,
+            (Mode::Normal, KeyCode::Char('q'), _) => self.should_quit = true,
+
+            // Mode transitions
+            (Mode::Normal, KeyCode::Char('i'), _) => {
+                self.mode = Mode::Edit;
+            }
+            (Mode::Edit, KeyCode::Esc, _) | (Mode::HeaderEdit, KeyCode::Esc, _) => {
+                self.mode = Mode::Normal;
+                self.new_header_key.clear();
+                self.new_header_value.clear();
+            }
+
+            // Normal mode navigation
+            (Mode::Normal, KeyCode::Char('h'), _) => self.move_left(),
+            (Mode::Normal, KeyCode::Char('j'), _) => self.move_down(),
+            (Mode::Normal, KeyCode::Char('k'), _) => self.move_up(),
+            (Mode::Normal, KeyCode::Char('l'), _) => self.move_right(),
+            (Mode::Normal, KeyCode::Tab, _) => self.next_panel(),
+            (Mode::Normal, KeyCode::BackTab, _) => self.prev_panel(),
+
+            // Method cycling
+            (Mode::Normal, KeyCode::Char('m'), _) if self.active_panel == Panel::Url => {
+                self.request.method = self.request.method.next();
+            }
+            (Mode::Normal, KeyCode::Char('M'), _) if self.active_panel == Panel::Url => {
+                self.request.method = self.request.method.prev();
+            }
+
+            // Header management
+            (Mode::Normal, KeyCode::Char('a'), _) if self.active_panel == Panel::Headers => {
+                self.mode = Mode::HeaderEdit;
+                self.editing_header_key = true;
+            }
+            (Mode::Normal, KeyCode::Char('d'), _) if self.active_panel == Panel::Headers => {
+                self.delete_header();
+            }
+
+            // Send request
+            (Mode::Normal, KeyCode::Enter, _) => self.send_request(),
+
+            // Edit mode - text editing
+            (Mode::Edit, KeyCode::Char(c), _) => self.handle_char_input(c),
+            (Mode::Edit, KeyCode::Backspace, _) => self.handle_backspace(),
+            (Mode::Edit, KeyCode::Delete, _) => self.handle_delete(),
+            (Mode::Edit, KeyCode::Left, _) => self.handle_cursor_left(),
+            (Mode::Edit, KeyCode::Right, _) => self.handle_cursor_right(),
+            (Mode::Edit, KeyCode::Home, _) => self.handle_cursor_home(),
+            (Mode::Edit, KeyCode::End, _) => self.handle_cursor_end(),
+
+            // Header edit mode
+            (Mode::HeaderEdit, KeyCode::Char(c), _) => self.handle_header_char_input(c),
+            (Mode::HeaderEdit, KeyCode::Backspace, _) => self.handle_header_backspace(),
+            (Mode::HeaderEdit, KeyCode::Tab, _) => {
+                if self.editing_header_key {
+                    self.editing_header_key = false;
+                } else {
+                    self.add_header();
+                    self.mode = Mode::Normal;
+                }
+            }
+            (Mode::HeaderEdit, KeyCode::Enter, _) => {
+                self.add_header();
+                self.mode = Mode::Normal;
+            }
+
+            _ => {}
+        }
+    }
+
+    fn move_left(&mut self) {
+        match self.active_panel {
+            Panel::Headers if !self.request.headers.is_empty() => {
+                if self.selected_header > 0 {
+                    self.selected_header -= 1;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn move_right(&mut self) {
+        match self.active_panel {
+            Panel::Headers if !self.request.headers.is_empty() => {
+                if self.selected_header < self.request.headers.len() - 1 {
+                    self.selected_header += 1;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn move_up(&mut self) {
+        match self.active_panel {
+            Panel::Headers if !self.request.headers.is_empty() => {
+                if self.selected_header > 0 {
+                    self.selected_header -= 1;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn move_down(&mut self) {
+        match self.active_panel {
+            Panel::Headers if !self.request.headers.is_empty() => {
+                if self.selected_header < self.request.headers.len() - 1 {
+                    self.selected_header += 1;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn next_panel(&mut self) {
+        self.active_panel = match self.active_panel {
+            Panel::Url => Panel::Headers,
+            Panel::Headers => Panel::Body,
+            Panel::Body => Panel::Response,
+            Panel::Response => Panel::Url,
+        };
+    }
+
+    fn prev_panel(&mut self) {
+        self.active_panel = match self.active_panel {
+            Panel::Url => Panel::Response,
+            Panel::Headers => Panel::Url,
+            Panel::Body => Panel::Headers,
+            Panel::Response => Panel::Body,
+        };
+    }
+
+    fn handle_char_input(&mut self, c: char) {
+        let req = InputRequest::InsertChar(c);
+        match self.active_panel {
+            Panel::Url => {
+                self.request.url.handle(req);
+            }
+            Panel::Body => {
+                self.request.body.handle(req);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_backspace(&mut self) {
+        let req = InputRequest::DeletePrevChar;
+        match self.active_panel {
+            Panel::Url => {
+                self.request.url.handle(req);
+            }
+            Panel::Body => {
+                self.request.body.handle(req);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_delete(&mut self) {
+        let req = InputRequest::DeleteNextChar;
+        match self.active_panel {
+            Panel::Url => {
+                self.request.url.handle(req);
+            }
+            Panel::Body => {
+                self.request.body.handle(req);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_cursor_left(&mut self) {
+        let req = InputRequest::GoToPrevChar;
+        match self.active_panel {
+            Panel::Url => {
+                self.request.url.handle(req);
+            }
+            Panel::Body => {
+                self.request.body.handle(req);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_cursor_right(&mut self) {
+        let req = InputRequest::GoToNextChar;
+        match self.active_panel {
+            Panel::Url => {
+                self.request.url.handle(req);
+            }
+            Panel::Body => {
+                self.request.body.handle(req);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_cursor_home(&mut self) {
+        let req = InputRequest::GoToStart;
+        match self.active_panel {
+            Panel::Url => {
+                self.request.url.handle(req);
+            }
+            Panel::Body => {
+                self.request.body.handle(req);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_cursor_end(&mut self) {
+        let req = InputRequest::GoToEnd;
+        match self.active_panel {
+            Panel::Url => {
+                self.request.url.handle(req);
+            }
+            Panel::Body => {
+                self.request.body.handle(req);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_header_char_input(&mut self, c: char) {
+        if self.editing_header_key {
+            self.new_header_key.push(c);
+        } else {
+            self.new_header_value.push(c);
+        }
+    }
+
+    fn handle_header_backspace(&mut self) {
+        if self.editing_header_key {
+            self.new_header_key.pop();
+        } else {
+            self.new_header_value.pop();
+        }
+    }
+
+    fn add_header(&mut self) {
+        if !self.new_header_key.is_empty() {
+            self.request
+                .headers
+                .push((self.new_header_key.clone(), self.new_header_value.clone()));
+            self.new_header_key.clear();
+            self.new_header_value.clear();
+            self.editing_header_key = true;
+        }
+    }
+
+    fn delete_header(&mut self) {
+        if !self.request.headers.is_empty() && self.selected_header < self.request.headers.len() {
+            self.request.headers.remove(self.selected_header);
+            if self.selected_header > 0 && self.selected_header >= self.request.headers.len() {
+                self.selected_header = self.request.headers.len().saturating_sub(1);
+            }
+        }
+    }
+
+    fn send_request(&mut self) {
+        self.is_loading = true;
+        let res = http::get(&self.request.url.to_string(), self.request.headers.clone()).unwrap();
+        let resp = Response {
+            status_code: res.status.into(),
+            status_text: res.status_text,
+            headers: res.headers,
+            body: res.body,
+            duration_ms: res.elapsed,
+        };
+        self.response = Some(resp);
+        self.history.push(self.request.clone());
+        self.is_loading = false;
+    }
+
+    fn render(&self, frame: &mut Frame) {
+        // Main vertical layout
+        let main_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // Header with title
+                Constraint::Length(3), // URL bar
+                Constraint::Min(10),   // Main content area
+                Constraint::Length(3), // Status/history bar
+            ])
+            .split(frame.area());
+
+        // Header
+        let title = Paragraph::new("Parsel - Tame your APIs from the terminal")
+            .block(Block::default().borders(Borders::ALL))
+            .style(
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .alignment(Alignment::Center);
+        frame.render_widget(title, main_layout[0]);
+
+        // URL Bar
+        let method_color = match self.request.method {
+            HttpMethod::GET => Color::Green,
+            HttpMethod::POST => Color::Blue,
+            HttpMethod::PUT => Color::Yellow,
+            HttpMethod::DELETE => Color::Red,
+            HttpMethod::PATCH => Color::Magenta,
+            HttpMethod::HEAD => Color::Cyan,
+            HttpMethod::OPTIONS => Color::LightBlue,
+        };
+
+        let url_title = format!("{:?}", self.request.method);
+        let url_style = if self.active_panel == Panel::Url && self.mode == Mode::Edit {
+            Style::default().fg(Color::White).bg(Color::DarkGray)
+        } else if self.active_panel == Panel::Url {
+            Style::default().fg(Color::White).bg(Color::Blue)
+        } else {
+            Style::default().fg(Color::White)
+        };
+
+        let url_display = self.request.url.to_string();
+        let url_bar = Paragraph::new(Line::from(vec![
+            Span::styled(
+                format!("{} ", url_title),
+                Style::default()
+                    .fg(method_color)
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(&url_display, url_style),
+        ]))
+        .block(Block::default().borders(Borders::ALL).title("Request"));
+        frame.render_widget(url_bar, main_layout[1]);
+
+        // Show cursor for URL field when in edit mode
+        if self.mode == Mode::Edit && self.active_panel == Panel::Url {
+            let layout = main_layout[1];
+            let width = layout.width.saturating_sub(2); // Account for borders
+            let scroll = self.request.url.visual_scroll(width as usize);
+            // Position cursor accounting for method prefix and scroll
+            let method_width = format!("{:?} ", self.request.method).len() as u16;
+            let x = (self.request.url.visual_cursor().max(scroll) - scroll) as u16;
+            frame.set_cursor_position((layout.x + 1 + method_width + x, layout.y + 1));
+        }
+
+        // Main content - split horizontally
+        let content_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(50), // Request panel
+                Constraint::Percentage(50), // Response panel
+            ])
+            .split(main_layout[2]);
+
+        // Request panel - split vertically
+        let request_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(8), // Headers
+                Constraint::Min(1),    // Body
+            ])
+            .split(content_layout[0]);
+
+        // Headers panel
+        self.render_headers_panel(frame, request_layout[0]);
+        self.render_body_panel(frame, request_layout[1]);
+        self.render_response_panel(frame, content_layout[1]);
+
+        // Status bar
+        let help_text = match (self.mode, &self.active_panel) {
+            (Mode::Normal, Panel::Url) => {
+                "hjkl: Navigate • i: Edit • m/M: Method • Enter: Send • q: Quit"
+            }
+            (Mode::Normal, Panel::Headers) => {
+                "hjkl: Navigate • a: Add • d: Delete • i: Edit • q: Quit"
+            }
+            (Mode::Normal, Panel::Body) => "hjkl: Navigate • i: Edit • Enter: Send • q: Quit",
+            (Mode::Normal, Panel::Response) => "hjkl: Navigate • Enter: Send • q: Quit",
+            (Mode::Edit, Panel::Url) => "Esc: Normal • ←→: Move cursor • Home/End • Enter: Send",
+            (Mode::Edit, Panel::Body) => {
+                "Esc: Normal • ←→: Move cursor • Home/End • Enter: Newline"
+            }
+            (Mode::HeaderEdit, _) => "Tab: Next field • Enter: Save • Esc: Cancel",
+            _ => "Esc: Normal mode",
+        };
+
+        let status_bar = Paragraph::new(Line::from(vec![
+            Span::styled("History: ", Style::default().fg(Color::Blue)),
+            Span::styled(
+                format!("{} requests", self.history.len()),
+                Style::default().fg(Color::Yellow),
+            ),
+            Span::styled(" • Mode: ", Style::default().fg(Color::Gray)),
+            Span::styled(format!("{:?}", self.mode), Style::default().fg(Color::Cyan)),
+            Span::styled(" • ", Style::default().fg(Color::Gray)),
+            Span::styled(help_text, Style::default().fg(Color::Gray)),
+        ]))
+        .block(Block::default().borders(Borders::ALL));
+        frame.render_widget(status_bar, main_layout[3]);
+    }
+
+    fn render_headers_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
+        let headers_style = if self.active_panel == Panel::Headers && self.mode == Mode::Normal {
+            Style::default().fg(Color::White).bg(Color::Blue)
+        } else if self.active_panel == Panel::Headers {
+            Style::default().fg(Color::White).bg(Color::DarkGray)
+        } else {
+            Style::default().fg(Color::Gray)
+        };
+
+        let mut header_items: Vec<ListItem> = self
+            .request
+            .headers
+            .iter()
+            .enumerate()
+            .map(|(i, (k, v))| {
+                let style = if i == self.selected_header && self.active_panel == Panel::Headers {
+                    Style::default().fg(Color::Black).bg(Color::Yellow)
+                } else {
+                    Style::default()
+                };
+                ListItem::new(format!("{}: {}", k, v)).style(style)
+            })
+            .collect();
+
+        // Add new header input if in header edit mode
+        if self.mode == Mode::HeaderEdit {
+            let new_header_text = if self.editing_header_key {
+                format!("→ {}: {}", self.new_header_key, self.new_header_value)
+            } else {
+                format!("{}: → {}", self.new_header_key, self.new_header_value)
+            };
+            header_items.push(
+                ListItem::new(new_header_text).style(
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            );
+        }
+
+        let headers = List::new(header_items)
+            .block(Block::default().borders(Borders::ALL).title("Headers"))
+            .style(headers_style);
+        frame.render_widget(headers, area);
+    }
+
+    fn render_body_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
+        let body_style = if self.active_panel == Panel::Body && self.mode == Mode::Edit {
+            Style::default().fg(Color::White).bg(Color::DarkGray)
+        } else if self.active_panel == Panel::Body {
+            Style::default().fg(Color::White).bg(Color::Blue)
+        } else {
+            Style::default().fg(Color::Gray)
+        };
+
+        let body_display = self.request.body.to_string();
+        let body = Paragraph::new(&*body_display)
+            .block(Block::default().borders(Borders::ALL).title("Body"))
+            .style(body_style);
+        frame.render_widget(body, area);
+
+        // Show cursor for body field when in edit mode
+        if self.mode == Mode::Edit && self.active_panel == Panel::Body {
+            let width = area.width.saturating_sub(2); // Account for borders
+            let scroll = self.request.body.visual_scroll(width as usize);
+            let x = (self.request.body.visual_cursor().max(scroll) - scroll) as u16;
+            frame.set_cursor_position((area.x + 1 + x, area.y + 1));
+        }
+    }
+
+    fn render_response_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
+        let response_style = if self.active_panel == Panel::Response {
+            Style::default().fg(Color::White).bg(Color::Blue)
+        } else {
+            Style::default().fg(Color::Gray)
+        };
+
+        if let Some(ref response) = self.response {
+            let response_layout = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(1), // Status line
+                    Constraint::Length(6), // Response headers
+                    Constraint::Min(1),    // Response body
+                ])
+                .split(area);
+
+            // Status line
+            let status_color = if response.status_code < 300 {
+                Color::Green
+            } else if response.status_code < 400 {
+                Color::Yellow
+            } else {
+                Color::Red
+            };
+
+            let status = Paragraph::new(format!(
+                "{} {} • {}ms",
+                response.status_code, response.status_text, response.duration_ms
+            ))
+            .style(
+                Style::default()
+                    .fg(status_color)
+                    .add_modifier(Modifier::BOLD),
+            );
+            frame.render_widget(status, response_layout[0]);
+
+            // Response headers
+            let resp_header_items: Vec<ListItem> = response
+                .headers
+                .iter()
+                .map(|(k, v)| ListItem::new(format!("{}: {}", k, v)))
+                .collect();
+
+            let resp_headers = List::new(resp_header_items)
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title("Response Headers"),
+                )
+                .style(Style::default().fg(Color::Gray));
+            frame.render_widget(resp_headers, response_layout[1]);
+
+            // Response body
+            let resp_body = Paragraph::new(&*response.body)
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title("Response Body"),
+                )
+                .style(response_style);
+            frame.render_widget(resp_body, response_layout[2]);
+        } else {
+            let empty_response = Paragraph::new("No response yet\n\nPress Enter to send request")
+                .block(Block::default().borders(Borders::ALL).title("Response"))
+                .style(response_style)
+                .alignment(Alignment::Center);
+            frame.render_widget(empty_response, area);
+        }
+    }
+}
+
+pub fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let mut terminal = ratatui::init();
+    let mut app = App::new();
+
+    loop {
+        terminal.draw(|frame| app.render(frame))?;
+
+        if let Event::Key(key) = event::read()?
+            && key.kind == KeyEventKind::Press
+        {
+            app.handle_key(key.code, key.modifiers);
+        }
+
+        if app.should_quit {
+            break;
+        }
+    }
+
+    ratatui::restore();
+    Ok(())
+}
