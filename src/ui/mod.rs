@@ -93,6 +93,7 @@ struct App {
     active_panel: Panel,
     should_quit: bool,
     is_loading: bool,
+    error: Option<String>,
     mode: Mode,
     selected_header: usize,
     editing_header_key: bool,
@@ -100,6 +101,8 @@ struct App {
     new_header_value: String,
     tx: std::sync::mpsc::Sender<Response>,
     rx: std::sync::mpsc::Receiver<Response>,
+    err_tx: std::sync::mpsc::Sender<String>,
+    err_rx: std::sync::mpsc::Receiver<String>,
 }
 
 impl Default for Request {
@@ -119,6 +122,7 @@ impl Default for Request {
 impl App {
     fn new() -> Self {
         let (tx, rx) = std::sync::mpsc::channel();
+        let (err_tx, err_rx) = std::sync::mpsc::channel::<String>();
         Self {
             request: Request::default(),
             response: None,
@@ -126,6 +130,7 @@ impl App {
             active_panel: Panel::Url,
             should_quit: false,
             is_loading: false,
+            error: None,
             mode: Mode::Normal,
             selected_header: 0,
             editing_header_key: true,
@@ -133,10 +138,13 @@ impl App {
             new_header_value: String::new(),
             tx,
             rx,
+            err_rx,
+            err_tx,
         }
     }
 
     fn handle_key(&mut self, key: KeyCode, modifiers: KeyModifiers) {
+        self.error = None;
         match (self.mode, key, modifiers) {
             // Global quit
             (_, KeyCode::Char('c'), KeyModifiers::CONTROL) => self.should_quit = true,
@@ -404,17 +412,25 @@ impl App {
         let url = self.request.url.to_string();
         let headers = self.request.headers.clone();
         let tx = self.tx.clone(); // channel to send result back (add to App)
+        let error_tx = self.err_tx.clone();
 
         std::thread::spawn(move || {
-            let res = http::get(&url, headers).unwrap();
-            let resp = Response {
-                status_code: res.status.into(),
-                status_text: res.status_text,
-                headers: res.headers,
-                body: res.body,
-                duration_ms: res.elapsed,
-            };
-            tx.send(resp).unwrap();
+            let res = http::get(&url, headers);
+            match res {
+                Ok(res) => {
+                    let resp = Response {
+                        status_code: res.status.into(),
+                        status_text: res.status_text,
+                        headers: res.headers,
+                        body: res.body,
+                        duration_ms: res.elapsed,
+                    };
+                    tx.send(resp).unwrap();
+                }
+                Err(err) => {
+                    let _ = error_tx.send(err.to_string());
+                }
+            }
         });
     }
 
@@ -564,6 +580,30 @@ impl App {
                     .title("Loading"),
             );
             frame.render_widget(loading_indicator, loading_area);
+        }
+
+        // Error Box
+        if let Some(error_msg) = &self.error {
+            let area = Rect {
+                x: frame.area().width / 2 - 20,
+                y: frame.area().height / 2,
+                width: 40,
+                height: 5,
+            };
+
+            frame.render_widget(Clear, area);
+
+            let error_box = Paragraph::new(error_msg.as_str())
+                .wrap(ratatui::widgets::Wrap { trim: false })
+                .style(Style::default().fg(Color::Red))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .title("Error"),
+                );
+
+            frame.render_widget(error_box, area);
         }
     }
 
@@ -746,9 +786,13 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             app.handle_key(key.code, key.modifiers);
         }
 
-        // <-- poll for finished background request
         if let Ok(resp) = app.rx.try_recv() {
             app.response = Some(resp);
+            app.is_loading = false;
+        }
+
+        if let Ok(err) = app.err_rx.try_recv() {
+            app.error = Some(err);
             app.is_loading = false;
         }
 
