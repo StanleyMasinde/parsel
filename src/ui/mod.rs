@@ -9,7 +9,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
+    widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph},
 };
 use tui_input::{Input, InputRequest};
 
@@ -432,7 +432,11 @@ impl App {
 
         // Header
         let title = Paragraph::new("Parsel - Test your APIs from the terminal")
-            .block(Block::default().borders(Borders::ALL))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded),
+            )
             .style(
                 Style::default()
                     .fg(Color::Green)
@@ -537,7 +541,11 @@ impl App {
             Span::styled(" • ", Style::default().fg(Color::Gray)),
             Span::styled(help_text, Style::default().fg(Color::Gray)),
         ]))
-        .block(Block::default().borders(Borders::ALL));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded),
+        );
         frame.render_widget(status_bar, main_layout[3]);
 
         // Temporary loading indicator
@@ -549,8 +557,12 @@ impl App {
                 height: 3,
             };
             frame.render_widget(Clear, loading_area); // clear what's behind
-            let loading_indicator = Paragraph::new("Please wait...")
-                .block(Block::default().borders(Borders::ALL).title("Loading"));
+            let loading_indicator = Paragraph::new("Please wait...").block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .title("Loading"),
+            );
             frame.render_widget(loading_indicator, loading_area);
         }
     }
@@ -596,7 +608,12 @@ impl App {
         }
 
         let headers = List::new(header_items)
-            .block(Block::default().borders(Borders::ALL).title("Headers"))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .title("Headers"),
+            )
             .style(headers_style);
         frame.render_widget(headers, area);
     }
@@ -612,7 +629,12 @@ impl App {
 
         let body_display = self.request.body.to_string();
         let body = Paragraph::new(&*body_display)
-            .block(Block::default().borders(Borders::ALL).title("Body"))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .title("Body"),
+            )
             .style(body_style);
         frame.render_widget(body, area);
 
@@ -673,6 +695,7 @@ impl App {
                 .block(
                     Block::default()
                         .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
                         .title("Response Headers"),
                 )
                 .style(Style::default().fg(Color::Gray));
@@ -683,13 +706,19 @@ impl App {
                 .block(
                     Block::default()
                         .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
                         .title("Response Body"),
                 )
                 .style(response_style);
             frame.render_widget(resp_body, response_layout[2]);
         } else {
             let empty_response = Paragraph::new("No response yet\n\nPress Enter to send request")
-                .block(Block::default().borders(Borders::ALL).title("Response"))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .title("Response"),
+                )
                 .style(response_style)
                 .alignment(Alignment::Center);
             frame.render_widget(empty_response, area);
