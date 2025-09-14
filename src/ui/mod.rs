@@ -793,6 +793,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
         if let Ok(err) = app.err_rx.try_recv() {
             app.error = Some(err);
+            app.response = None;
             app.is_loading = false;
         }
 
