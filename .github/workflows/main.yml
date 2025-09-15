@@ -1,0 +1,154 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BINARY_NAME: parsel
+
+jobs:
+  generate-changelog:
+    name: Generate changelog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install git-cliff
+        uses: kenji-miyake/setup-git-cliff@v2
+
+      - name: Generate CHANGELOG.md
+        id: changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cliff --latest --output CHANGELOG.md >/dev/null
+          {
+            echo "changelog<<EOF"
+            cat CHANGELOG.md
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload changelog artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md
+          if-no-files-found: error
+          retention-days: 7
+
+  build:
+    name: Build ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            name: linux-x64
+            archive_ext: tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-13
+            name: darwin-x64
+            archive_ext: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-14
+            name: darwin-arm64
+            archive_ext: tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install musl tools (Linux MUSL only)
+        if: contains(matrix.target, 'musl')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Build release
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --locked --release --target "${{ matrix.target }}"
+
+      - name: Package
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF#refs/tags/}"
+          TARGET_DIR="target/${{ matrix.target }}/release"
+          BIN="${TARGET_DIR}/${BINARY_NAME}"
+
+          test -f "$BIN" || { echo "Binary missing: $BIN"; exit 1; }
+
+          ARCHIVE="${BINARY_NAME}-${{ matrix.name }}.${{ matrix.archive_ext }}"
+
+          STAGE="$(mktemp -d)"
+          install -m 0755 "$BIN" "$STAGE/${BINARY_NAME}"
+
+          tar -C "$STAGE" -czf "$ARCHIVE" .
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+
+      - name: Upload packaged artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.archive }}
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Create release
+    needs: [generate-changelog, build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Extract changelog for release body
+        id: get-changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHANGELOG_PATH="artifacts/changelog/CHANGELOG.md"
+          test -f "$CHANGELOG_PATH" || { echo "Missing changelog artifact"; exit 1; }
+          {
+            echo "changelog<<EOF"
+            cat "$CHANGELOG_PATH"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          body: ${{ steps.get-changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: artifacts/**/*.tar.gz
