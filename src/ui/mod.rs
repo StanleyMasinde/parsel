@@ -103,6 +103,8 @@ struct App {
     rx: std::sync::mpsc::Receiver<Response>,
     err_tx: std::sync::mpsc::Sender<String>,
     err_rx: std::sync::mpsc::Receiver<String>,
+    his_tx: std::sync::mpsc::Sender<Request>,
+    his_rx: std::sync::mpsc::Receiver<Request>,
 }
 
 impl Default for Request {
@@ -123,6 +125,7 @@ impl App {
     fn new() -> Self {
         let (tx, rx) = std::sync::mpsc::channel();
         let (err_tx, err_rx) = std::sync::mpsc::channel::<String>();
+        let (his_tx, his_rx) = std::sync::mpsc::channel::<Request>();
         Self {
             request: Request::default(),
             response: None,
@@ -140,6 +143,8 @@ impl App {
             rx,
             err_rx,
             err_tx,
+            his_tx,
+            his_rx,
         }
     }
 
@@ -409,9 +414,11 @@ impl App {
     fn send_request(&mut self) {
         self.is_loading = true;
 
+        let request = self.request.clone();
         let url = self.request.url.to_string();
         let headers = self.request.headers.clone();
         let tx = self.tx.clone(); // channel to send result back (add to App)
+        let his_tx = self.his_tx.clone();
         let error_tx = self.err_tx.clone();
 
         std::thread::spawn(move || {
@@ -426,6 +433,7 @@ impl App {
                         duration_ms: res.elapsed,
                     };
                     tx.send(resp).unwrap();
+                    his_tx.send(request).unwrap();
                 }
                 Err(err) => {
                     let _ = error_tx.send(err.to_string());
@@ -795,6 +803,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             app.error = Some(err);
             app.response = None;
             app.is_loading = false;
+        }
+
+        if let Ok(req) = app.his_rx.try_recv() {
+            app.history.push(req);
         }
 
         if app.should_quit {
