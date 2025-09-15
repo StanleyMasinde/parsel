@@ -25,6 +25,15 @@ sudo mv parsel /usr/local/bin/
 sudo chmod +x /usr/local/bin/parsel
 ```
 
+
+**Linux (x64 Static)**
+
+```bash
+wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x64-static.tar.gz && tar -xzf parsel-linux-x64.tar.gz && rm parsel-linux-x64.tar.gz
+sudo mv parsel /usr/local/bin/
+sudo chmod +x /usr/local/bin/parsel
+```
+
 **macOS (Intel)**
 
 ```bash
