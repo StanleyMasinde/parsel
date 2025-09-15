@@ -20,7 +20,7 @@ Download the appropriate binary from releases:
 **Linux (x64)**
 
 ```bash
-wget https://github.com/StanleyMasinde/Parsel/releases/latest/download/parsel-linux-x64.tar.gz && tar -xzf parsel-linux-x64.tar.gz && rm parsel-linux-x64.tar.gz
+wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x64.tar.gz && tar -xzf parsel-linux-x64.tar.gz && rm parsel-linux-x64.tar.gz
 sudo mv parsel /usr/local/bin/
 sudo chmod +x /usr/local/bin/parsel
 ```
@@ -28,7 +28,7 @@ sudo chmod +x /usr/local/bin/parsel
 **macOS (Intel)**
 
 ```bash
-curl -L https://github.com/StanleyMasinde/Parsel/releases/latest/download/parsel-darwin-x64.tar.gz | tar -xz
+curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-x64.tar.gz | tar -xz
 sudo mv parsel /usr/local/bin/
 sudo chmod +x /usr/local/bin/parsel
 ```
@@ -36,7 +36,7 @@ sudo chmod +x /usr/local/bin/parsel
 **macOS (Apple Silicon)**
 
 ```bash
-curl -L https://github.com/StanleyMasinde/Parsel/releases/latest/download/parsel-darwin-arm64.tar.gz | tar -xz
+curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-arm64.tar.gz | tar -xz
 sudo mv parsel /usr/local/bin/
 sudo chmod +x /usr/local/bin/parsel
 ```
