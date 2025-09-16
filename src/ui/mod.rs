@@ -697,7 +697,7 @@ impl App {
                 Block::default()
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
-                    .title("Body"),
+                    .title("Request Body"),
             )
             .style(body_style);
         frame.render_widget(body, area);
