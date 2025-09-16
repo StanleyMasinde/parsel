@@ -58,6 +58,7 @@ pub trait RestClient {
 #[derive(Debug, Default, Clone)]
 pub struct HttpClient {
     pub request_headers: Vec<(String, String)>,
+    pub query_params: Vec<(String, String)>,
 }
 
 impl HttpClient {
@@ -82,8 +83,10 @@ impl RestClient for HttpClient {
         let client = reqwest::blocking::Client::new();
         let response = client
             .get(url)
+            .query(&self.query_params)
             .headers(vec_to_headermap(request_headers.to_vec()))
             .send()?;
+
         let elapsed = start.elapsed().as_millis();
         let status = response.status();
         let headers = headers_to_map(response.headers());
@@ -143,6 +146,7 @@ impl RestClient for HttpClient {
         let client = reqwest::blocking::Client::new();
         let response = client
             .get(path)
+            .query(&self.query_params)
             .headers(vec_to_headermap(request_headers.to_vec()))
             .json(&body)
             .send()?;
@@ -174,6 +178,7 @@ impl RestClient for HttpClient {
         let client = reqwest::blocking::Client::new();
         let response = client
             .get(path)
+            .query(&self.query_params)
             .headers(vec_to_headermap(request_headers.to_vec()))
             .json(&body)
             .send()?;
@@ -201,8 +206,10 @@ impl RestClient for HttpClient {
         let client = reqwest::blocking::Client::new();
         let response = client
             .delete(path)
+            .query(&self.query_params)
             .headers(vec_to_headermap(request_headers.to_vec()))
             .send()?;
+
         let elapsed = start.elapsed().as_millis();
         let status = response.status();
         let headers = headers_to_map(response.headers());

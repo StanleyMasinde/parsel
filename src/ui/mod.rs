@@ -509,11 +509,13 @@ impl App {
         let url = self.request.url.to_string();
         let body = HashMap::new();
         let headers = self.request.headers.clone();
-        let tx = self.tx.clone(); // channel to send result back (add to App)
+        let query_params = self.request.query_params.clone();
+        let tx = self.tx.clone();
         let his_tx = self.his_tx.clone();
         let error_tx = self.err_tx.clone();
         let mut http_client = self.http_client.clone();
         http_client.request_headers = headers;
+        http_client.query_params = query_params;
 
         std::thread::spawn(move || {
             let res = match method {
