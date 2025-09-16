@@ -608,7 +608,12 @@ impl App {
             ),
             Span::styled(&url_display, url_style),
         ]))
-        .block(Block::default().borders(Borders::ALL).title("Request"));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .title("Request"),
+        );
         frame.render_widget(url_bar, main_layout[1]);
 
         // Show cursor for URL field when in edit mode
