@@ -463,9 +463,10 @@ impl App {
 
     fn add_query_param(&mut self) {
         if !self.new_query_param_key.is_empty() {
-            self.request
-                .query_params
-                .push((self.new_query_param_key.clone(), self.new_query_param_value.clone()));
+            self.request.query_params.push((
+                self.new_query_param_key.clone(),
+                self.new_query_param_value.clone(),
+            ));
             self.new_query_param_key.clear();
             self.new_query_param_value.clear();
             self.editing_header_key = true;
@@ -493,10 +494,14 @@ impl App {
     }
 
     fn delete_query_param(&mut self) {
-        if !self.request.headers.is_empty() && self.selected_header < self.request.headers.len() {
-            self.request.headers.remove(self.selected_header);
-            if self.selected_header > 0 && self.selected_header >= self.request.headers.len() {
-                self.selected_header = self.request.headers.len().saturating_sub(1);
+        if !self.request.query_params.is_empty()
+            && self.selected_query_param < self.request.query_params.len()
+        {
+            self.request.query_params.remove(self.selected_query_param);
+            if self.selected_query_param > 0
+                && self.selected_query_param >= self.request.query_params.len()
+            {
+                self.selected_query_param = self.request.query_params.len().saturating_sub(1);
             }
         }
     }
