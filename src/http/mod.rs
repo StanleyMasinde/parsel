@@ -200,7 +200,7 @@ impl RestClient for HttpClient {
         let start = Instant::now();
         let client = reqwest::blocking::Client::new();
         let response = client
-            .get(path)
+            .delete(path)
             .headers(vec_to_headermap(request_headers.to_vec()))
             .send()?;
         let elapsed = start.elapsed().as_millis();
