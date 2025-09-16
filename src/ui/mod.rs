@@ -13,7 +13,7 @@ use ratatui::{
 };
 use tui_input::{Input, InputRequest};
 
-use crate::http;
+use crate::http::{self, RestClient};
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, PartialEq)]
@@ -105,6 +105,7 @@ struct App {
     err_rx: std::sync::mpsc::Receiver<String>,
     his_tx: std::sync::mpsc::Sender<Request>,
     his_rx: std::sync::mpsc::Receiver<Request>,
+    http_client: http::HttpClient,
 }
 
 impl Default for Request {
@@ -126,6 +127,8 @@ impl App {
         let (tx, rx) = std::sync::mpsc::channel();
         let (err_tx, err_rx) = std::sync::mpsc::channel::<String>();
         let (his_tx, his_rx) = std::sync::mpsc::channel::<Request>();
+        let http_client = http::HttpClient::default();
+
         Self {
             request: Request::default(),
             response: None,
@@ -145,6 +148,7 @@ impl App {
             err_tx,
             his_tx,
             his_rx,
+            http_client,
         }
     }
 
@@ -415,14 +419,26 @@ impl App {
         self.is_loading = true;
 
         let request = self.request.clone();
+        let method = self.request.method.clone();
         let url = self.request.url.to_string();
+        let body = HashMap::new();
         let headers = self.request.headers.clone();
         let tx = self.tx.clone(); // channel to send result back (add to App)
         let his_tx = self.his_tx.clone();
         let error_tx = self.err_tx.clone();
+        let mut http_client = self.http_client.clone();
+        http_client.request_headers = headers;
 
         std::thread::spawn(move || {
-            let res = http::get(&url, headers);
+            let res = match method {
+                HttpMethod::GET => http_client.get(&url),
+                HttpMethod::POST => http_client.post(&url, body),
+                HttpMethod::PUT => http_client.put(&url, body),
+                HttpMethod::DELETE => http_client.delete(&url),
+                HttpMethod::PATCH => http_client.patch(&url, body),
+                HttpMethod::HEAD => http_client.get(&url),
+                HttpMethod::OPTIONS => http_client.get(&url),
+            };
             match res {
                 Ok(res) => {
                     let resp = Response {
