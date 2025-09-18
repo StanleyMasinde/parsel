@@ -107,12 +107,17 @@ struct App {
 
 impl Default for Request {
     fn default() -> Self {
+        let app_name = env!("CARGO_PKG_NAME");
+        let app_version = env!("CARGO_PKG_VERSION");
         Self {
             method: HttpMethod::GET,
             url: "https://httpbin.org/get".into(),
             headers: vec![
                 ("Content-Type".to_string(), "application/json".to_string()),
-                ("User-Agent".to_string(), "Parsel/1.0".to_string()),
+                (
+                    "User-Agent".to_string(),
+                    format!("{}/{}", app_name, app_version),
+                ),
             ],
             body: "".into(),
         }
