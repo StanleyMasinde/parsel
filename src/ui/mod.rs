@@ -122,7 +122,7 @@ impl Default for Request {
         let app_version = env!("CARGO_PKG_VERSION");
         Self {
             method: HttpMethod::GET,
-            url: "https://httpbin.org/get".into(),
+            url: "https://api.restful-api.dev/objects".into(),
             headers: vec![
                 ("Content-Type".to_string(), "application/json".to_string()),
                 (
