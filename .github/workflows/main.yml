@@ -37,7 +37,6 @@ jobs:
           set -euo pipefail
           {
             echo "changelog<<EOF"
-            cat CHANGELOG.md
             git cliff --latest
             echo
             echo "EOF"
