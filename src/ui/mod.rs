@@ -1,15 +1,10 @@
 use std::{collections::HashMap, time::Duration};
 
 use ratatui::{
-    Frame,
     crossterm::{
         self,
         event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
-    },
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph},
+    }, layout::{Alignment, Constraint, Direction, Layout, Rect}, style::{Color, Modifier, Style}, text::{Line, Span}, widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Wrap}, Frame
 };
 use serde_json::json;
 use tui_input::{Input, InputRequest};
@@ -934,7 +929,7 @@ impl App {
                         .border_type(BorderType::Rounded)
                         .title("Response Body"),
                 )
-                .style(response_style);
+                .style(response_style).wrap(Wrap { trim: false });
             frame.render_widget(resp_body, response_layout[2]);
         } else {
             let empty_response = Paragraph::new("No response yet\n\nPress Enter to send request")
