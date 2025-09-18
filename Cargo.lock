@@ -857,7 +857,7 @@ dependencies = [
 
 [[package]]
 name = "parsel"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "ratatui",
  "reqwest",

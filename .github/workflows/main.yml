@@ -41,15 +41,6 @@ jobs:
             echo
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-
-      - name: Upload changelog artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: changelog
-          path: CHANGELOG.md
-          if-no-files-found: error
-          retention-days: 7
-
   build:
     name: Build ${{ matrix.name }}
     strategy:
@@ -137,24 +128,11 @@ jobs:
         with:
           path: artifacts
 
-      - name: Extract changelog for release body
-        id: get-changelog
-        shell: bash
-        run: |
-          set -euo pipefail
-          CHANGELOG_PATH="artifacts/changelog/CHANGELOG.md"
-          test -f "$CHANGELOG_PATH" || { echo "Missing changelog artifact"; exit 1; }
-          {
-            echo "changelog<<EOF"
-            cat "$CHANGELOG_PATH"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         if: github.ref_type == 'tag'
         with:
-          body: ${{ steps.get-changelog.outputs.changelog }}
+          body: ${{ steps.changelog.outputs.changelog }}
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: artifacts/**/*.tar.gz
