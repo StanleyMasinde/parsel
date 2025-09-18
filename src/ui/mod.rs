@@ -11,6 +11,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph},
 };
+use serde_json::json;
 use tui_input::{Input, InputRequest};
 
 use crate::http::{self, RestClient};
@@ -517,7 +518,7 @@ impl App {
         let request = self.request.clone();
         let method = self.request.method.clone();
         let url = self.request.url.to_string();
-        let body = HashMap::new();
+        let body = self.request.body.to_string();
         let headers = self.request.headers.clone();
         let query_params = self.request.query_params.clone();
         let tx = self.tx.clone();
@@ -528,12 +529,13 @@ impl App {
         http_client.query_params = query_params;
 
         std::thread::spawn(move || {
+            let json_body = json!(body);
             let res = match method {
                 HttpMethod::GET => http_client.get(&url),
-                HttpMethod::POST => http_client.post(&url, body),
-                HttpMethod::PUT => http_client.put(&url, body),
+                HttpMethod::POST => http_client.post(&url, json_body),
+                HttpMethod::PUT => http_client.put(&url, json_body),
                 HttpMethod::DELETE => http_client.delete(&url),
-                HttpMethod::PATCH => http_client.patch(&url, body),
+                HttpMethod::PATCH => http_client.patch(&url, json_body),
                 HttpMethod::HEAD => http_client.get(&url),
                 HttpMethod::OPTIONS => http_client.get(&url),
             };

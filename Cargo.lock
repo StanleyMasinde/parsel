@@ -861,6 +861,7 @@ version = "0.2.0"
 dependencies = [
  "ratatui",
  "reqwest",
+ "serde_json",
  "tui-input",
 ]
 
