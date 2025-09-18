@@ -13,7 +13,7 @@ use ratatui::{
 };
 use tui_input::{Input, InputRequest};
 
-use crate::http;
+use crate::http::{self, RestClient};
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, PartialEq)]
@@ -58,6 +58,7 @@ struct Request {
     method: HttpMethod,
     url: Input,
     headers: Vec<(String, String)>,
+    query_params: Vec<(String, String)>,
     body: Input,
 }
 
@@ -73,6 +74,7 @@ struct Response {
 #[derive(Debug, PartialEq)]
 enum Panel {
     Url,
+    QueryParams,
     Headers,
     Body,
     Response,
@@ -83,6 +85,7 @@ enum Mode {
     Normal,
     Edit,
     HeaderEdit,
+    QueryParamEdit,
 }
 
 #[derive(Debug)]
@@ -103,6 +106,13 @@ struct App {
     rx: std::sync::mpsc::Receiver<Response>,
     err_tx: std::sync::mpsc::Sender<String>,
     err_rx: std::sync::mpsc::Receiver<String>,
+    his_tx: std::sync::mpsc::Sender<Request>,
+    his_rx: std::sync::mpsc::Receiver<Request>,
+    http_client: http::HttpClient,
+    new_query_param_value: String,
+    editing_query_param_key: bool,
+    new_query_param_key: String,
+    selected_query_param: usize,
 }
 
 impl Default for Request {
@@ -120,6 +130,7 @@ impl Default for Request {
                 ),
             ],
             body: "".into(),
+            query_params: vec![],
         }
     }
 }
@@ -128,6 +139,9 @@ impl App {
     fn new() -> Self {
         let (tx, rx) = std::sync::mpsc::channel();
         let (err_tx, err_rx) = std::sync::mpsc::channel::<String>();
+        let (his_tx, his_rx) = std::sync::mpsc::channel::<Request>();
+        let http_client = http::HttpClient::default();
+
         Self {
             request: Request::default(),
             response: None,
@@ -145,6 +159,13 @@ impl App {
             rx,
             err_rx,
             err_tx,
+            his_tx,
+            his_rx,
+            http_client,
+            new_query_param_value: String::new(),
+            editing_query_param_key: false,
+            new_query_param_key: String::new(),
+            selected_query_param: 0,
         }
     }
 
@@ -181,6 +202,15 @@ impl App {
                 self.request.method = self.request.method.prev();
             }
 
+            // Query Param management
+            (Mode::Normal, KeyCode::Char('a'), _) if self.active_panel == Panel::QueryParams => {
+                self.mode = Mode::QueryParamEdit;
+                self.editing_query_param_key = true;
+            }
+            (Mode::Normal, KeyCode::Char('d'), _) if self.active_panel == Panel::QueryParams => {
+                self.delete_query_param();
+            }
+
             // Header management
             (Mode::Normal, KeyCode::Char('a'), _) if self.active_panel == Panel::Headers => {
                 self.mode = Mode::HeaderEdit;
@@ -201,6 +231,23 @@ impl App {
             (Mode::Edit, KeyCode::Right, _) => self.handle_cursor_right(),
             (Mode::Edit, KeyCode::Home, _) => self.handle_cursor_home(),
             (Mode::Edit, KeyCode::End, _) => self.handle_cursor_end(),
+
+            // Query Param edit mode
+            (Mode::QueryParamEdit, KeyCode::Char(c), _) => self.handle_query_param_char_input(c),
+            (Mode::QueryParamEdit, KeyCode::Backspace, _) => self.handle_query_param_backspace(),
+            (Mode::QueryParamEdit, KeyCode::Tab, _) => {
+                if self.editing_query_param_key {
+                    self.editing_header_key = false;
+                } else {
+                    self.add_query_param();
+                    self.mode = Mode::Normal;
+                }
+            }
+
+            (Mode::QueryParamEdit, KeyCode::Enter, _) => {
+                self.add_query_param();
+                self.mode = Mode::Normal;
+            }
 
             // Header edit mode
             (Mode::HeaderEdit, KeyCode::Char(c), _) => self.handle_header_char_input(c),
@@ -224,6 +271,11 @@ impl App {
 
     fn move_left(&mut self) {
         match self.active_panel {
+            Panel::QueryParams if !self.request.query_params.is_empty() => {
+                if self.selected_query_param > 0 {
+                    self.selected_query_param -= 1;
+                }
+            }
             Panel::Headers if !self.request.headers.is_empty() => {
                 if self.selected_header > 0 {
                     self.selected_header -= 1;
@@ -235,6 +287,11 @@ impl App {
 
     fn move_right(&mut self) {
         match self.active_panel {
+            Panel::QueryParams if !self.request.query_params.is_empty() => {
+                if self.selected_query_param < self.request.query_params.len() - 1 {
+                    self.selected_query_param += 1;
+                }
+            }
             Panel::Headers if !self.request.headers.is_empty() => {
                 if self.selected_header < self.request.headers.len() - 1 {
                     self.selected_header += 1;
@@ -268,7 +325,8 @@ impl App {
 
     fn next_panel(&mut self) {
         self.active_panel = match self.active_panel {
-            Panel::Url => Panel::Headers,
+            Panel::Url => Panel::QueryParams,
+            Panel::QueryParams => Panel::Headers,
             Panel::Headers => Panel::Body,
             Panel::Body => Panel::Response,
             Panel::Response => Panel::Url,
@@ -278,7 +336,8 @@ impl App {
     fn prev_panel(&mut self) {
         self.active_panel = match self.active_panel {
             Panel::Url => Panel::Response,
-            Panel::Headers => Panel::Url,
+            Panel::QueryParams => Panel::Url,
+            Panel::Headers => Panel::QueryParams,
             Panel::Body => Panel::Headers,
             Panel::Response => Panel::Body,
         };
@@ -375,6 +434,14 @@ impl App {
         }
     }
 
+    fn handle_query_param_char_input(&mut self, c: char) {
+        if self.editing_header_key {
+            self.new_query_param_key.push(c);
+        } else {
+            self.new_query_param_value.push(c);
+        }
+    }
+
     fn handle_header_char_input(&mut self, c: char) {
         if self.editing_header_key {
             self.new_header_key.push(c);
@@ -383,11 +450,31 @@ impl App {
         }
     }
 
+    fn handle_query_param_backspace(&mut self) {
+        if self.editing_query_param_key {
+            self.new_query_param_key.pop();
+        } else {
+            self.new_query_param_value.pop();
+        }
+    }
+
     fn handle_header_backspace(&mut self) {
         if self.editing_header_key {
             self.new_header_key.pop();
         } else {
             self.new_header_value.pop();
+        }
+    }
+
+    fn add_query_param(&mut self) {
+        if !self.new_query_param_key.is_empty() {
+            self.request.query_params.push((
+                self.new_query_param_key.clone(),
+                self.new_query_param_value.clone(),
+            ));
+            self.new_query_param_key.clear();
+            self.new_query_param_value.clear();
+            self.editing_header_key = true;
         }
     }
 
@@ -411,16 +498,45 @@ impl App {
         }
     }
 
+    fn delete_query_param(&mut self) {
+        if !self.request.query_params.is_empty()
+            && self.selected_query_param < self.request.query_params.len()
+        {
+            self.request.query_params.remove(self.selected_query_param);
+            if self.selected_query_param > 0
+                && self.selected_query_param >= self.request.query_params.len()
+            {
+                self.selected_query_param = self.request.query_params.len().saturating_sub(1);
+            }
+        }
+    }
+
     fn send_request(&mut self) {
         self.is_loading = true;
 
+        let request = self.request.clone();
+        let method = self.request.method.clone();
         let url = self.request.url.to_string();
+        let body = HashMap::new();
         let headers = self.request.headers.clone();
-        let tx = self.tx.clone(); // channel to send result back (add to App)
+        let query_params = self.request.query_params.clone();
+        let tx = self.tx.clone();
+        let his_tx = self.his_tx.clone();
         let error_tx = self.err_tx.clone();
+        let mut http_client = self.http_client.clone();
+        http_client.request_headers = headers;
+        http_client.query_params = query_params;
 
         std::thread::spawn(move || {
-            let res = http::get(&url, headers);
+            let res = match method {
+                HttpMethod::GET => http_client.get(&url),
+                HttpMethod::POST => http_client.post(&url, body),
+                HttpMethod::PUT => http_client.put(&url, body),
+                HttpMethod::DELETE => http_client.delete(&url),
+                HttpMethod::PATCH => http_client.patch(&url, body),
+                HttpMethod::HEAD => http_client.get(&url),
+                HttpMethod::OPTIONS => http_client.get(&url),
+            };
             match res {
                 Ok(res) => {
                     let resp = Response {
@@ -431,6 +547,7 @@ impl App {
                         duration_ms: res.elapsed,
                     };
                     tx.send(resp).unwrap();
+                    his_tx.send(request).unwrap();
                 }
                 Err(err) => {
                     let _ = error_tx.send(err.to_string());
@@ -523,14 +640,16 @@ impl App {
         let request_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
+                Constraint::Length(8), // Query Params
                 Constraint::Length(8), // Headers
                 Constraint::Min(1),    // Body
             ])
             .split(content_layout[0]);
 
         // Headers panel
-        self.render_headers_panel(frame, request_layout[0]);
-        self.render_body_panel(frame, request_layout[1]);
+        self.render_query_params_panel(frame, request_layout[0]);
+        self.render_headers_panel(frame, request_layout[1]);
+        self.render_body_panel(frame, request_layout[2]);
         self.render_response_panel(frame, content_layout[1]);
 
         // Status bar
@@ -612,6 +731,65 @@ impl App {
         }
     }
 
+    fn render_query_params_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
+        let headers_style = if self.active_panel == Panel::QueryParams && self.mode == Mode::Normal
+        {
+            Style::default().fg(Color::White).bg(Color::Blue)
+        } else if self.active_panel == Panel::QueryParams {
+            Style::default().fg(Color::White).bg(Color::DarkGray)
+        } else {
+            Style::default().fg(Color::Gray)
+        };
+
+        let mut query_param_items: Vec<ListItem> = self
+            .request
+            .query_params
+            .iter()
+            .enumerate()
+            .map(|(i, (k, v))| {
+                let style = if i == self.selected_header && self.active_panel == Panel::QueryParams
+                {
+                    Style::default().fg(Color::Black).bg(Color::Yellow)
+                } else {
+                    Style::default()
+                };
+                ListItem::new(format!("{}: {}", k, v)).style(style)
+            })
+            .collect();
+
+        // Add new query param input if in header edit mode
+        if self.mode == Mode::QueryParamEdit {
+            let new_query_param_text = if self.editing_query_param_key {
+                format!(
+                    "→ {}: {}",
+                    self.new_query_param_key, self.new_query_param_value
+                )
+            } else {
+                format!(
+                    "{}: → {}",
+                    self.new_query_param_key, self.new_query_param_value
+                )
+            };
+            query_param_items.push(
+                ListItem::new(new_query_param_text).style(
+                    Style::default()
+                        .fg(Color::Green)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            );
+        }
+
+        let query_params = List::new(query_param_items)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .title("Query Params"),
+            )
+            .style(headers_style);
+        frame.render_widget(query_params, area);
+    }
+
     fn render_headers_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
         let headers_style = if self.active_panel == Panel::Headers && self.mode == Mode::Normal {
             Style::default().fg(Color::White).bg(Color::Blue)
@@ -678,7 +856,7 @@ impl App {
                 Block::default()
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded)
-                    .title("Body"),
+                    .title("Request Body"),
             )
             .style(body_style);
         frame.render_widget(body, area);
@@ -800,6 +978,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             app.error = Some(err);
             app.response = None;
             app.is_loading = false;
+        }
+
+        if let Ok(req) = app.his_rx.try_recv() {
+            app.history.push(req);
         }
 
         if app.should_quit {

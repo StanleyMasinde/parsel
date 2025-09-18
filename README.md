@@ -12,6 +12,7 @@ A lot of my work is in the terminal and sometimes Curl is too complex. I built t
 * Displays all responses as plain text
 * TUI-based interface for sending requests and viewing responses
 * Supports custom headers and body input
+* **Modal interface (like Vim)**
 
 ## Installation
 
@@ -21,6 +22,14 @@ Download the appropriate binary from releases:
 
 ```bash
 wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x64.tar.gz && tar -xzf parsel-linux-x64.tar.gz && rm parsel-linux-x64.tar.gz
+sudo mv parsel /usr/local/bin/
+sudo chmod +x /usr/local/bin/parsel
+```
+
+**Linux (x64 Static)**
+
+```bash
+wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x64-static.tar.gz && tar -xzf parsel-linux-x64.tar.gz && rm parsel-linux-x64.tar.gz
 sudo mv parsel /usr/local/bin/
 sudo chmod +x /usr/local/bin/parsel
 ```
@@ -43,13 +52,26 @@ sudo chmod +x /usr/local/bin/parsel
 
 ## Usage
 
-Run Parsel from your terminal:
-
 ```bash
 parsel
 ```
 
-Navigate the TUI to select endpoints, send GET requests, and view responses as text.
+Parsel uses **modal editing**:
+
+* Use `Tab` to switch between sections.
+* In the **Request tab** (default):
+
+  * `m` cycles HTTP method forward, `M` cycles back.
+  * `Enter` sends the request.
+* In **Query Params** or **Headers** tab:
+
+  * `i` enters edit mode
+  * `a` adds a new item
+  * Type the key → `Tab` → type the value → `Return` to save
+  * `D` deletes the selected item in normal mode
+* In the **URL** or **Request Body** tab:
+
+  * `i` to enter edit mode, type your input, `Esc` to go back to normal mode
 
 ## Contributing
 
