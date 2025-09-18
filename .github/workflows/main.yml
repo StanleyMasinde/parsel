@@ -35,10 +35,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git cliff --latest --output CHANGELOG.md >/dev/null
           {
             echo "changelog<<EOF"
             cat CHANGELOG.md
+            git cliff --latest
+            echo
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
