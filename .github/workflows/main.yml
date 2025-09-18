@@ -27,6 +27,8 @@ jobs:
 
       - name: Install git-cliff
         uses: kenji-miyake/setup-git-cliff@v2
+        with:
+          token: null
 
       - name: Generate CHANGELOG.md
         id: changelog
