@@ -11,7 +11,6 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Wrap},
 };
-use serde_json::json;
 use tui_input::{Input, InputRequest};
 
 use crate::http::{self, RestClient};
