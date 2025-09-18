@@ -40,17 +40,17 @@ pub trait RestClient {
     fn post(
         &self,
         path: &str,
-        body: serde_json::Value,
+        body: Option<serde_json::Value>,
     ) -> Result<HttpResponse, reqwest::Error>;
     fn put(
         &self,
         path: &str,
-        body: serde_json::Value,
+        body: Option<serde_json::Value>,
     ) -> Result<HttpResponse, reqwest::Error>;
     fn patch(
         &self,
         path: &str,
-        body: serde_json::Value,
+        body: Option<serde_json::Value>,
     ) -> Result<HttpResponse, reqwest::Error>;
     fn delete(&self, path: &str) -> Result<HttpResponse, reqwest::Error>;
 }
@@ -108,7 +108,7 @@ impl RestClient for HttpClient {
     fn post(
         &self,
         path: &str,
-        body: serde_json::Value,
+        body: Option<serde_json::Value>,
     ) -> Result<HttpResponse, reqwest::Error> {
         let request_headers = &self.request_headers.to_vec();
         let start = Instant::now();
@@ -139,7 +139,7 @@ impl RestClient for HttpClient {
     fn put(
         &self,
         path: &str,
-        body: serde_json::Value,
+        body: Option<serde_json::Value>,
     ) -> Result<HttpResponse, reqwest::Error> {
         let request_headers = &self.request_headers.to_vec();
         let start = Instant::now();
@@ -171,7 +171,7 @@ impl RestClient for HttpClient {
     fn patch(
         &self,
         path: &str,
-        body: serde_json::Value,
+        body: Option<serde_json::Value>,
     ) -> Result<HttpResponse, reqwest::Error> {
         let request_headers = &self.request_headers.to_vec();
         let start = Instant::now();

@@ -863,6 +863,7 @@ dependencies = [
  "reqwest",
  "serde_json",
  "tui-input",
+ "unicode-segmentation",
 ]
 
 [[package]]

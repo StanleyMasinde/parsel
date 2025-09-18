@@ -1,10 +1,15 @@
 use std::{collections::HashMap, time::Duration};
 
 use ratatui::{
+    Frame,
     crossterm::{
         self,
         event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
-    }, layout::{Alignment, Constraint, Direction, Layout, Rect}, style::{Color, Modifier, Style}, text::{Line, Span}, widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Wrap}, Frame
+    },
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Wrap},
 };
 use serde_json::json;
 use tui_input::{Input, InputRequest};
@@ -227,6 +232,7 @@ impl App {
             (Mode::Edit, KeyCode::Right, _) => self.handle_cursor_right(),
             (Mode::Edit, KeyCode::Home, _) => self.handle_cursor_home(),
             (Mode::Edit, KeyCode::End, _) => self.handle_cursor_end(),
+            (Mode::Edit, KeyCode::Enter, _) => self.handle_enter_input(),
 
             // Query Param edit mode
             (Mode::QueryParamEdit, KeyCode::Char(c), _) => self.handle_query_param_char_input(c),
@@ -354,6 +360,19 @@ impl App {
 
     fn handle_backspace(&mut self) {
         let req = InputRequest::DeletePrevChar;
+        match self.active_panel {
+            Panel::Url => {
+                self.request.url.handle(req);
+            }
+            Panel::Body => {
+                self.request.body.handle(req);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_enter_input(&mut self) {
+        let req = InputRequest::InsertChar('\n');
         match self.active_panel {
             Panel::Url => {
                 self.request.url.handle(req);
@@ -524,7 +543,7 @@ impl App {
         http_client.query_params = query_params;
 
         std::thread::spawn(move || {
-            let json_body = json!(body);
+            let json_body = serde_json::from_str(&body.replace("\n", "")).unwrap_or(None);
             let res = match method {
                 HttpMethod::GET => http_client.get(&url),
                 HttpMethod::POST => http_client.post(&url, json_body),
@@ -860,10 +879,45 @@ impl App {
 
         // Show cursor for body field when in edit mode
         if self.mode == Mode::Edit && self.active_panel == Panel::Body {
-            let width = area.width.saturating_sub(2); // Account for borders
-            let scroll = self.request.body.visual_scroll(width as usize);
-            let x = (self.request.body.visual_cursor().max(scroll) - scroll) as u16;
-            frame.set_cursor_position((area.x + 1 + x, area.y + 1));
+            use unicode_segmentation::UnicodeSegmentation;
+
+            let area_width = area.width.saturating_sub(2);
+            let area_height = area.height.saturating_sub(2);
+
+            let text = self.request.body.to_string();
+            let cursor = self.request.body.visual_cursor();
+
+            // Walk through lines to find line and column
+            let mut remaining = cursor;
+            let mut line_idx = 0;
+            let mut col_idx = 0;
+
+            for line in text.split('\n') {
+                let len = line.graphemes(true).count();
+                if remaining <= len {
+                    col_idx = remaining;
+                    break;
+                } else {
+                    remaining -= len + 1; // +1 for the '\n'
+                    line_idx += 1;
+                }
+            }
+
+            // Horizontal scroll based on current line only
+            let line_text = text.split('\n').nth(line_idx).unwrap_or("");
+            let line_len = line_text.graphemes(true).count();
+            let max_scroll_x = line_len.saturating_sub(area_width as usize);
+            let scroll_x = col_idx.min(max_scroll_x);
+
+            // Vertical scroll based on current line
+            let total_lines = text.lines().count();
+            let max_scroll_y = total_lines.saturating_sub(area_height as usize);
+            let scroll_y = line_idx.min(max_scroll_y);
+
+            let x = (col_idx - scroll_x) as u16;
+            let y = (line_idx - scroll_y) as u16;
+
+            frame.set_cursor_position((area.x + 1 + x, area.y + 1 + y));
         }
     }
 
@@ -929,7 +983,8 @@ impl App {
                         .border_type(BorderType::Rounded)
                         .title("Response Body"),
                 )
-                .style(response_style).wrap(Wrap { trim: false });
+                .style(response_style)
+                .wrap(Wrap { trim: false });
             frame.render_widget(resp_body, response_layout[2]);
         } else {
             let empty_response = Paragraph::new("No response yet\n\nPress Enter to send request")
