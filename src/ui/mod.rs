@@ -62,13 +62,25 @@ struct Request {
     body: Input,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Response {
     status_code: u16,
     status_text: String,
     headers: HashMap<String, String>,
     body: String,
     duration_ms: u128,
+}
+
+impl Default for Response {
+    fn default() -> Self {
+        Self {
+            status_code: 200,
+            status_text: "Ok".to_string(),
+            headers: HashMap::new(),
+            body: Default::default(),
+            duration_ms: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -681,12 +693,15 @@ impl App {
             _ => "Esc: Normal mode",
         };
 
+        let response_time = self.response.clone().unwrap_or_default().duration_ms;
+        let color: Color = match response_time {
+            0..=250 => Color::Green,
+            251..700 => Color::Yellow,
+            _ => Color::Red,
+        };
         let status_bar = Paragraph::new(Line::from(vec![
-            Span::styled("History: ", Style::default().fg(Color::Cyan)),
-            Span::styled(
-                format!("{} requests", self.history.len()),
-                Style::default().fg(Color::Yellow),
-            ),
+            Span::styled("Response time: ", Style::default().fg(Color::Cyan)),
+            Span::styled(format!("{} ms", response_time), Style::default().fg(color)),
             Span::styled(" • Mode: ", Style::default().fg(Color::Gray)),
             Span::styled(format!("{:?}", self.mode), Style::default().fg(Color::Cyan)),
             Span::styled(" • ", Style::default().fg(Color::Gray)),
@@ -942,15 +957,12 @@ impl App {
                 Color::Red
             };
 
-            let status = Paragraph::new(format!(
-                "{} {} • {}ms",
-                response.status_code, response.status_text, response.duration_ms
-            ))
-            .style(
-                Style::default()
-                    .fg(status_color)
-                    .add_modifier(Modifier::BOLD),
-            );
+            let status =
+                Paragraph::new(format!("{} {}", response.status_code, response.status_text)).style(
+                    Style::default()
+                        .fg(status_color)
+                        .add_modifier(Modifier::BOLD),
+                );
             frame.render_widget(status, response_layout[0]);
 
             // Response headers
