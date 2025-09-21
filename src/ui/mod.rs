@@ -590,12 +590,8 @@ impl App {
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded),
             )
-            .style(
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .alignment(Alignment::Center);
+            .style(Style::default().add_modifier(Modifier::BOLD))
+            .centered();
         frame.render_widget(title, main_layout[0]);
 
         // URL Bar
