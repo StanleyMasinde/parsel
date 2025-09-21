@@ -857,11 +857,13 @@ dependencies = [
 
 [[package]]
 name = "parsel"
-version = "0.2.0"
+version = "0.3.1"
 dependencies = [
  "ratatui",
  "reqwest",
+ "serde_json",
  "tui-input",
+ "unicode-segmentation",
 ]
 
 [[package]]

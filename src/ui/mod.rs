@@ -62,13 +62,25 @@ struct Request {
     body: Input,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Response {
     status_code: u16,
     status_text: String,
     headers: HashMap<String, String>,
     body: String,
     duration_ms: u128,
+}
+
+impl Default for Response {
+    fn default() -> Self {
+        Self {
+            status_code: 200,
+            status_text: "Ok".to_string(),
+            headers: HashMap::new(),
+            body: Default::default(),
+            duration_ms: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -117,12 +129,17 @@ struct App {
 
 impl Default for Request {
     fn default() -> Self {
+        let app_name = env!("CARGO_PKG_NAME");
+        let app_version = env!("CARGO_PKG_VERSION");
         Self {
             method: HttpMethod::GET,
-            url: "https://httpbin.org/get".into(),
+            url: "https://api.restful-api.dev/objects".into(),
             headers: vec![
                 ("Content-Type".to_string(), "application/json".to_string()),
-                ("User-Agent".to_string(), "Parsel/1.0".to_string()),
+                (
+                    "User-Agent".to_string(),
+                    format!("{}/{}", app_name, app_version),
+                ),
             ],
             body: "".into(),
             query_params: vec![],
@@ -226,6 +243,7 @@ impl App {
             (Mode::Edit, KeyCode::Right, _) => self.handle_cursor_right(),
             (Mode::Edit, KeyCode::Home, _) => self.handle_cursor_home(),
             (Mode::Edit, KeyCode::End, _) => self.handle_cursor_end(),
+            (Mode::Edit, KeyCode::Enter, _) => self.handle_enter_input(),
 
             // Query Param edit mode
             (Mode::QueryParamEdit, KeyCode::Char(c), _) => self.handle_query_param_char_input(c),
@@ -353,6 +371,19 @@ impl App {
 
     fn handle_backspace(&mut self) {
         let req = InputRequest::DeletePrevChar;
+        match self.active_panel {
+            Panel::Url => {
+                self.request.url.handle(req);
+            }
+            Panel::Body => {
+                self.request.body.handle(req);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_enter_input(&mut self) {
+        let req = InputRequest::InsertChar('\n');
         match self.active_panel {
             Panel::Url => {
                 self.request.url.handle(req);
@@ -512,7 +543,7 @@ impl App {
         let request = self.request.clone();
         let method = self.request.method.clone();
         let url = self.request.url.to_string();
-        let body = HashMap::new();
+        let body = self.request.body.to_string();
         let headers = self.request.headers.clone();
         let query_params = self.request.query_params.clone();
         let tx = self.tx.clone();
@@ -523,12 +554,13 @@ impl App {
         http_client.query_params = query_params;
 
         std::thread::spawn(move || {
+            let json_body = serde_json::from_str(&body.replace("\n", "")).unwrap_or(None);
             let res = match method {
                 HttpMethod::GET => http_client.get(&url),
-                HttpMethod::POST => http_client.post(&url, body),
-                HttpMethod::PUT => http_client.put(&url, body),
+                HttpMethod::POST => http_client.post(&url, json_body),
+                HttpMethod::PUT => http_client.put(&url, json_body),
                 HttpMethod::DELETE => http_client.delete(&url),
-                HttpMethod::PATCH => http_client.patch(&url, body),
+                HttpMethod::PATCH => http_client.patch(&url, json_body),
                 HttpMethod::HEAD => http_client.get(&url),
                 HttpMethod::OPTIONS => http_client.get(&url),
             };
@@ -570,18 +602,14 @@ impl App {
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded),
             )
-            .style(
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .alignment(Alignment::Center);
+            .style(Style::default().add_modifier(Modifier::BOLD))
+            .centered();
         frame.render_widget(title, main_layout[0]);
 
         // URL Bar
         let method_color = match self.request.method {
             HttpMethod::GET => Color::Green,
-            HttpMethod::POST => Color::Blue,
+            HttpMethod::POST => Color::Cyan,
             HttpMethod::PUT => Color::Yellow,
             HttpMethod::DELETE => Color::Red,
             HttpMethod::PATCH => Color::Magenta,
@@ -593,7 +621,7 @@ impl App {
         let url_style = if self.active_panel == Panel::Url && self.mode == Mode::Edit {
             Style::default().bg(Color::DarkGray)
         } else if self.active_panel == Panel::Url {
-            Style::default().bg(Color::Blue)
+            Style::default().bg(Color::Cyan)
         } else {
             Style::default()
         };
@@ -670,12 +698,15 @@ impl App {
             _ => "Esc: Normal mode",
         };
 
+        let response_time = self.response.clone().unwrap_or_default().duration_ms;
+        let color: Color = match response_time {
+            0..=250 => Color::Green,
+            251..700 => Color::Yellow,
+            _ => Color::Red,
+        };
         let status_bar = Paragraph::new(Line::from(vec![
-            Span::styled("History: ", Style::default().fg(Color::Blue)),
-            Span::styled(
-                format!("{} requests", self.history.len()),
-                Style::default().fg(Color::Yellow),
-            ),
+            Span::styled("Response time: ", Style::default().fg(Color::Cyan)),
+            Span::styled(format!("{} ms", response_time), Style::default().fg(color)),
             Span::styled(" • Mode: ", Style::default().fg(Color::Gray)),
             Span::styled(format!("{:?}", self.mode), Style::default().fg(Color::Cyan)),
             Span::styled(" • ", Style::default().fg(Color::Gray)),
@@ -736,7 +767,7 @@ impl App {
     fn render_query_params_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
         let headers_style = if self.active_panel == Panel::QueryParams && self.mode == Mode::Normal
         {
-            Style::default().fg(Color::White).bg(Color::Blue)
+            Style::default().fg(Color::White).bg(Color::Cyan)
         } else if self.active_panel == Panel::QueryParams {
             Style::default().fg(Color::White).bg(Color::DarkGray)
         } else {
@@ -794,7 +825,7 @@ impl App {
 
     fn render_headers_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
         let headers_style = if self.active_panel == Panel::Headers && self.mode == Mode::Normal {
-            Style::default().fg(Color::White).bg(Color::Blue)
+            Style::default().fg(Color::White).bg(Color::Cyan)
         } else if self.active_panel == Panel::Headers {
             Style::default().fg(Color::White).bg(Color::DarkGray)
         } else {
@@ -847,7 +878,7 @@ impl App {
         let body_style = if self.active_panel == Panel::Body && self.mode == Mode::Edit {
             Style::default().fg(Color::White).bg(Color::DarkGray)
         } else if self.active_panel == Panel::Body {
-            Style::default().fg(Color::White).bg(Color::Blue)
+            Style::default().fg(Color::White).bg(Color::Cyan)
         } else {
             Style::default().fg(Color::Gray)
         };
@@ -865,16 +896,51 @@ impl App {
 
         // Show cursor for body field when in edit mode
         if self.mode == Mode::Edit && self.active_panel == Panel::Body {
-            let width = area.width.saturating_sub(2); // Account for borders
-            let scroll = self.request.body.visual_scroll(width as usize);
-            let x = (self.request.body.visual_cursor().max(scroll) - scroll) as u16;
-            frame.set_cursor_position((area.x + 1 + x, area.y + 1));
+            use unicode_segmentation::UnicodeSegmentation;
+
+            let area_width = area.width.saturating_sub(2);
+            let area_height = area.height.saturating_sub(2);
+
+            let text = self.request.body.to_string();
+            let cursor = self.request.body.visual_cursor();
+
+            // Walk through lines to find line and column
+            let mut remaining = cursor;
+            let mut line_idx = 0;
+            let mut col_idx = 0;
+
+            for line in text.split('\n') {
+                let len = line.graphemes(true).count();
+                if remaining <= len {
+                    col_idx = remaining;
+                    break;
+                } else {
+                    remaining -= len + 1; // +1 for the '\n'
+                    line_idx += 1;
+                }
+            }
+
+            // Horizontal scroll based on current line only
+            let line_text = text.split('\n').nth(line_idx).unwrap_or("");
+            let line_len = line_text.graphemes(true).count();
+            let max_scroll_x = line_len.saturating_sub(area_width as usize);
+            let scroll_x = col_idx.min(max_scroll_x);
+
+            // Vertical scroll based on current line
+            let total_lines = text.lines().count();
+            let max_scroll_y = total_lines.saturating_sub(area_height as usize);
+            let scroll_y = line_idx.min(max_scroll_y);
+
+            let x = (col_idx - scroll_x) as u16;
+            let y = (line_idx - scroll_y) as u16;
+
+            frame.set_cursor_position((area.x + 1 + x, area.y + 1 + y));
         }
     }
 
     fn render_response_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
         let response_style = if self.active_panel == Panel::Response {
-            Style::default().fg(Color::White).bg(Color::Blue)
+            Style::default().fg(Color::White).bg(Color::Cyan)
         } else {
             Style::default().fg(Color::Gray)
         };
@@ -898,15 +964,12 @@ impl App {
                 Color::Red
             };
 
-            let status = Paragraph::new(format!(
-                "{} {} • {}ms",
-                response.status_code, response.status_text, response.duration_ms
-            ))
-            .style(
-                Style::default()
-                    .fg(status_color)
-                    .add_modifier(Modifier::BOLD),
-            );
+            let status =
+                Paragraph::new(format!("{} {}", response.status_code, response.status_text)).style(
+                    Style::default()
+                        .fg(status_color)
+                        .add_modifier(Modifier::BOLD),
+                );
             frame.render_widget(status, response_layout[0]);
 
             // Response headers
@@ -934,7 +997,8 @@ impl App {
                         .border_type(BorderType::Rounded)
                         .title("Response Body"),
                 )
-                .style(response_style);
+                .style(response_style)
+                .wrap(Wrap { trim: false });
             frame.render_widget(resp_body, response_layout[2]);
         } else {
             let empty_response = Paragraph::new("No response yet\n\nPress Enter to send request")
