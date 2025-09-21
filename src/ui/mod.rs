@@ -597,7 +597,7 @@ impl App {
         // URL Bar
         let method_color = match self.request.method {
             HttpMethod::GET => Color::Green,
-            HttpMethod::POST => Color::Blue,
+            HttpMethod::POST => Color::Cyan,
             HttpMethod::PUT => Color::Yellow,
             HttpMethod::DELETE => Color::Red,
             HttpMethod::PATCH => Color::Magenta,
@@ -609,7 +609,7 @@ impl App {
         let url_style = if self.active_panel == Panel::Url && self.mode == Mode::Edit {
             Style::default().bg(Color::DarkGray)
         } else if self.active_panel == Panel::Url {
-            Style::default().bg(Color::Blue)
+            Style::default().bg(Color::Cyan)
         } else {
             Style::default()
         };
@@ -682,7 +682,7 @@ impl App {
         };
 
         let status_bar = Paragraph::new(Line::from(vec![
-            Span::styled("History: ", Style::default().fg(Color::Blue)),
+            Span::styled("History: ", Style::default().fg(Color::Cyan)),
             Span::styled(
                 format!("{} requests", self.history.len()),
                 Style::default().fg(Color::Yellow),
@@ -745,7 +745,7 @@ impl App {
     fn render_query_params_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
         let headers_style = if self.active_panel == Panel::QueryParams && self.mode == Mode::Normal
         {
-            Style::default().fg(Color::White).bg(Color::Blue)
+            Style::default().fg(Color::White).bg(Color::Cyan)
         } else if self.active_panel == Panel::QueryParams {
             Style::default().fg(Color::White).bg(Color::DarkGray)
         } else {
@@ -803,7 +803,7 @@ impl App {
 
     fn render_headers_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
         let headers_style = if self.active_panel == Panel::Headers && self.mode == Mode::Normal {
-            Style::default().fg(Color::White).bg(Color::Blue)
+            Style::default().fg(Color::White).bg(Color::Cyan)
         } else if self.active_panel == Panel::Headers {
             Style::default().fg(Color::White).bg(Color::DarkGray)
         } else {
@@ -856,7 +856,7 @@ impl App {
         let body_style = if self.active_panel == Panel::Body && self.mode == Mode::Edit {
             Style::default().fg(Color::White).bg(Color::DarkGray)
         } else if self.active_panel == Panel::Body {
-            Style::default().fg(Color::White).bg(Color::Blue)
+            Style::default().fg(Color::White).bg(Color::Cyan)
         } else {
             Style::default().fg(Color::Gray)
         };
@@ -918,7 +918,7 @@ impl App {
 
     fn render_response_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
         let response_style = if self.active_panel == Panel::Response {
-            Style::default().fg(Color::White).bg(Color::Blue)
+            Style::default().fg(Color::White).bg(Color::Cyan)
         } else {
             Style::default().fg(Color::Gray)
         };
