@@ -705,18 +705,20 @@ impl App {
         // Temporary loading indicator
         if self.is_loading {
             let loading_area = Rect {
-                x: frame.area().width / 2 - 10,
-                y: frame.area().height / 2,
-                width: 20,
-                height: 3,
+                x: frame.area().width / 2 - 16,
+                y: frame.area().height / 2 - 3,
+                width: 30,
+                height: 5,
             };
             frame.render_widget(Clear, loading_area); // clear what's behind
-            let loading_indicator = Paragraph::new("Please wait...").block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .title("Loading"),
-            );
+            let loading_indicator = Paragraph::new("Please wait for the request to complete.")
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .title("Making request"),
+                )
+                .wrap(Wrap { trim: false });
             frame.render_widget(loading_indicator, loading_area);
         }
 
