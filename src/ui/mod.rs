@@ -938,7 +938,7 @@ impl App {
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Length(1), // Status line
-                    Constraint::Length(6), // Response headers
+                    Constraint::Length(15), // Response headers
                     Constraint::Min(1),    // Response body
                 ])
                 .split(area);
