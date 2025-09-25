@@ -588,23 +588,11 @@ impl App {
         let main_layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // Header with title
                 Constraint::Length(3), // URL bar
                 Constraint::Min(10),   // Main content area
                 Constraint::Length(3), // Status/history bar
             ])
             .split(frame.area());
-
-        // Header
-        let title = Paragraph::new("Parsel - Test your APIs from the terminal")
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded),
-            )
-            .style(Style::default().add_modifier(Modifier::BOLD))
-            .centered();
-        frame.render_widget(title, main_layout[0]);
 
         // URL Bar
         let method_color = match self.request.method {
@@ -637,7 +625,7 @@ impl App {
             Span::styled(&url_display, url_style),
         ]))
         .block(Block::default().borders(Borders::ALL).title("Request"));
-        frame.render_widget(url_bar, main_layout[1]);
+        frame.render_widget(url_bar, main_layout[0]);
 
         // Show cursor for URL field when in edit mode
         if self.mode == Mode::Edit && self.active_panel == Panel::Url {
@@ -657,7 +645,7 @@ impl App {
                 Constraint::Percentage(50), // Request panel
                 Constraint::Percentage(50), // Response panel
             ])
-            .split(main_layout[2]);
+            .split(main_layout[1]);
 
         // Request panel - split vertically
         let request_layout = Layout::default()
@@ -712,7 +700,7 @@ impl App {
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded),
         );
-        frame.render_widget(status_bar, main_layout[3]);
+        frame.render_widget(status_bar, main_layout[2]);
 
         // Temporary loading indicator
         if self.is_loading {
