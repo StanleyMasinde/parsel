@@ -32,15 +32,13 @@ wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-li
 **macOS (Intel)**
 
 ```bash
-curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-x64.tar.gz | tar -xz
-sudo mv parsel /usr/local/bin/
-sudo chmod +x /usr/local/bin/parsel
+curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-x64.tar.gz | tar -xz && sudo install -sm 755 parsel /usr/local/bin/
 ```
 
 **macOS (Apple Silicon)**
 
 ```bash
-curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-x64.tar.gz | tar -xz && sudo install -sm 755 parsel /usr/local/bin/
+curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-arm64.tar.gz | tar -xz && sudo install -sm 755 parsel /usr/local/bin/
 ```
 
 ## Usage
