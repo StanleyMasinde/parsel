@@ -8,11 +8,10 @@ A lot of my work is in the terminal and sometimes Curl is too complex. I built t
 
 ## MVP Features
 
-* Sends GET requests only
+* Sends requests
 * Displays all responses as plain text
-* TUI-based interface for sending requests and viewing responses
 * Supports custom headers and body input
-* **Modal interface (like Vim)**
+* _Modal interface (like Vim)_
 
 ## Installation
 
@@ -21,33 +20,25 @@ Download the appropriate binary from releases:
 **Linux (x64)**
 
 ```bash
-wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x64.tar.gz && tar -xzf parsel-linux-x64.tar.gz && rm parsel-linux-x64.tar.gz
-sudo mv parsel /usr/local/bin/
-sudo chmod +x /usr/local/bin/parsel
+wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x64.tar.gz && tar -xzf parsel-linux-x64.tar.gz && rm parsel-linux-x64.tar.gz && sudo install -sm 755 parsel /usr/local/bin/
 ```
 
 **Linux (x64 Static)**
 
 ```bash
-wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x64-static.tar.gz && tar -xzf parsel-linux-x64-static.tar.gz && rm parsel-linux-x64-static.tar.gz
-sudo mv parsel /usr/local/bin/
-sudo chmod +x /usr/local/bin/parsel
+wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x64-static.tar.gz && tar -xzf parsel-linux-x64-static.tar.gz && rm parsel-linux-x64-static.tar.gz && sudo install -sm 755 parsel /usr/local/bin/
 ```
 
 **macOS (Intel)**
 
 ```bash
-curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-x64.tar.gz | tar -xz
-sudo mv parsel /usr/local/bin/
-sudo chmod +x /usr/local/bin/parsel
+curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-x64.tar.gz | tar -xz && sudo install -sm 755 parsel /usr/local/bin/
 ```
 
 **macOS (Apple Silicon)**
 
 ```bash
-curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-arm64.tar.gz | tar -xz
-sudo mv parsel /usr/local/bin/
-sudo chmod +x /usr/local/bin/parsel
+curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-arm64.tar.gz | tar -xz && sudo install -sm 755 parsel /usr/local/bin/
 ```
 
 ## Usage
