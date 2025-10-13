@@ -1,17 +1,18 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, fmt::Display, time::Duration};
 
 use ratatui::{
     Frame,
     crossterm::{
         self,
-        event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
+        event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
     },
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Wrap},
 };
-use tui_input::{Input, InputRequest};
+use tui_input::Input;
+use tui_textarea::TextArea;
 
 use crate::http::{self, RestClient};
 
@@ -27,29 +28,19 @@ enum HttpMethod {
     OPTIONS,
 }
 
-impl HttpMethod {
-    fn next(&self) -> Self {
-        match self {
-            HttpMethod::GET => HttpMethod::POST,
-            HttpMethod::POST => HttpMethod::PUT,
-            HttpMethod::PUT => HttpMethod::DELETE,
-            HttpMethod::DELETE => HttpMethod::PATCH,
-            HttpMethod::PATCH => HttpMethod::HEAD,
-            HttpMethod::HEAD => HttpMethod::OPTIONS,
-            HttpMethod::OPTIONS => HttpMethod::GET,
-        }
-    }
+impl Display for HttpMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let method_string = match self {
+            HttpMethod::GET => "GET",
+            HttpMethod::POST => "POST",
+            HttpMethod::PUT => "PUT",
+            HttpMethod::DELETE => "DELETE",
+            HttpMethod::PATCH => "PATCH",
+            HttpMethod::HEAD => "HEAD",
+            HttpMethod::OPTIONS => "OPTIONS",
+        };
 
-    fn prev(&self) -> Self {
-        match self {
-            HttpMethod::GET => HttpMethod::OPTIONS,
-            HttpMethod::POST => HttpMethod::GET,
-            HttpMethod::PUT => HttpMethod::POST,
-            HttpMethod::DELETE => HttpMethod::PUT,
-            HttpMethod::PATCH => HttpMethod::DELETE,
-            HttpMethod::HEAD => HttpMethod::PATCH,
-            HttpMethod::OPTIONS => HttpMethod::HEAD,
-        }
+        write!(f, "{}", method_string)
     }
 }
 
@@ -101,7 +92,7 @@ enum Mode {
 }
 
 #[derive(Debug)]
-struct App {
+struct App<'a> {
     request: Request,
     response: Option<Response>,
     history: Vec<Request>,
@@ -124,7 +115,7 @@ struct App {
     new_query_param_value: String,
     editing_query_param_key: bool,
     new_query_param_key: String,
-    selected_query_param: usize,
+    url_input: TextArea<'a>,
 }
 
 impl Default for Request {
@@ -147,12 +138,18 @@ impl Default for Request {
     }
 }
 
-impl App {
+impl<'a> App<'a> {
     fn new() -> Self {
         let (tx, rx) = std::sync::mpsc::channel();
         let (err_tx, err_rx) = std::sync::mpsc::channel::<String>();
         let (his_tx, his_rx) = std::sync::mpsc::channel::<Request>();
         let http_client = http::HttpClient::default();
+        let mut url_input = TextArea::default();
+        url_input.set_block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title("Enter the URL"),
+        );
 
         Self {
             request: Request::default(),
@@ -177,363 +174,67 @@ impl App {
             new_query_param_value: String::new(),
             editing_query_param_key: false,
             new_query_param_key: String::new(),
-            selected_query_param: 0,
+            url_input,
         }
     }
 
-    fn handle_key(&mut self, key: KeyCode, modifiers: KeyModifiers) {
+    fn handle_key(&mut self, key: KeyEvent) {
         self.error = None;
-        match (self.mode, key, modifiers) {
-            // Global quit
-            (_, KeyCode::Char('c'), KeyModifiers::CONTROL) => self.should_quit = true,
-            (Mode::Normal, KeyCode::Char('q'), _) => self.should_quit = true,
 
-            // Mode transitions
-            (Mode::Normal, KeyCode::Char('i'), _) => {
-                self.mode = Mode::Edit;
-            }
-            (Mode::Edit, KeyCode::Esc, _) | (Mode::HeaderEdit, KeyCode::Esc, _) => {
-                self.mode = Mode::Normal;
-                self.new_header_key.clear();
-                self.new_header_value.clear();
-            }
-
-            // Normal mode navigation
-            (Mode::Normal, KeyCode::Char('h'), _) => self.move_left(),
-            (Mode::Normal, KeyCode::Char('j'), _) => self.move_down(),
-            (Mode::Normal, KeyCode::Char('k'), _) => self.move_up(),
-            (Mode::Normal, KeyCode::Char('l'), _) => self.move_right(),
-            (Mode::Normal, KeyCode::Tab, _) => self.next_panel(),
-            (Mode::Normal, KeyCode::BackTab, _) => self.prev_panel(),
-
-            // Method cycling
-            (Mode::Normal, KeyCode::Char('m'), _) if self.active_panel == Panel::Url => {
-                self.request.method = self.request.method.next();
-            }
-            (Mode::Normal, KeyCode::Char('M'), _) if self.active_panel == Panel::Url => {
-                self.request.method = self.request.method.prev();
-            }
-
-            // Query Param management
-            (Mode::Normal, KeyCode::Char('a'), _) if self.active_panel == Panel::QueryParams => {
-                self.mode = Mode::QueryParamEdit;
-                self.editing_query_param_key = true;
-            }
-            (Mode::Normal, KeyCode::Char('d'), _) if self.active_panel == Panel::QueryParams => {
-                self.delete_query_param();
-            }
-
-            // Header management
-            (Mode::Normal, KeyCode::Char('a'), _) if self.active_panel == Panel::Headers => {
-                self.mode = Mode::HeaderEdit;
-                self.editing_header_key = true;
-            }
-            (Mode::Normal, KeyCode::Char('d'), _) if self.active_panel == Panel::Headers => {
-                self.delete_header();
-            }
-
-            // Send request
-            (Mode::Normal, KeyCode::Enter, _) => self.send_request(),
-
-            // Edit mode - text editing
-            (Mode::Edit, KeyCode::Char(c), _) => self.handle_char_input(c),
-            (Mode::Edit, KeyCode::Backspace, _) => self.handle_backspace(),
-            (Mode::Edit, KeyCode::Delete, _) => self.handle_delete(),
-            (Mode::Edit, KeyCode::Left, _) => self.handle_cursor_left(),
-            (Mode::Edit, KeyCode::Right, _) => self.handle_cursor_right(),
-            (Mode::Edit, KeyCode::Home, _) => self.handle_cursor_home(),
-            (Mode::Edit, KeyCode::End, _) => self.handle_cursor_end(),
-            (Mode::Edit, KeyCode::Enter, _) => self.handle_enter_input(),
-
-            // Query Param edit mode
-            (Mode::QueryParamEdit, KeyCode::Char(c), _) => self.handle_query_param_char_input(c),
-            (Mode::QueryParamEdit, KeyCode::Backspace, _) => self.handle_query_param_backspace(),
-            (Mode::QueryParamEdit, KeyCode::Tab, _) => {
-                if self.editing_query_param_key {
-                    self.editing_header_key = false;
-                } else {
-                    self.add_query_param();
-                    self.mode = Mode::Normal;
-                }
-            }
-
-            (Mode::QueryParamEdit, KeyCode::Enter, _) => {
-                self.add_query_param();
-                self.mode = Mode::Normal;
-            }
-
-            // Header edit mode
-            (Mode::HeaderEdit, KeyCode::Char(c), _) => self.handle_header_char_input(c),
-            (Mode::HeaderEdit, KeyCode::Backspace, _) => self.handle_header_backspace(),
-            (Mode::HeaderEdit, KeyCode::Tab, _) => {
-                if self.editing_header_key {
-                    self.editing_header_key = false;
-                } else {
-                    self.add_header();
-                    self.mode = Mode::Normal;
-                }
-            }
-            (Mode::HeaderEdit, KeyCode::Enter, _) => {
-                self.add_header();
-                self.mode = Mode::Normal;
-            }
-
-            _ => {}
-        }
-    }
-
-    fn move_left(&mut self) {
-        match self.active_panel {
-            Panel::QueryParams if !self.request.query_params.is_empty() => {
-                if self.selected_query_param > 0 {
-                    self.selected_query_param -= 1;
-                }
-            }
-            Panel::Headers if !self.request.headers.is_empty() => {
-                if self.selected_header > 0 {
-                    self.selected_header -= 1;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn move_right(&mut self) {
-        match self.active_panel {
-            Panel::QueryParams if !self.request.query_params.is_empty() => {
-                if self.selected_query_param < self.request.query_params.len() - 1 {
-                    self.selected_query_param += 1;
-                }
-            }
-            Panel::Headers if !self.request.headers.is_empty() => {
-                if self.selected_header < self.request.headers.len() - 1 {
-                    self.selected_header += 1;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn move_up(&mut self) {
-        match self.active_panel {
-            Panel::Headers if !self.request.headers.is_empty() => {
-                if self.selected_header > 0 {
-                    self.selected_header -= 1;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn move_down(&mut self) {
-        match self.active_panel {
-            Panel::Headers if !self.request.headers.is_empty() => {
-                if self.selected_header < self.request.headers.len() - 1 {
-                    self.selected_header += 1;
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn next_panel(&mut self) {
-        self.active_panel = match self.active_panel {
-            Panel::Url => Panel::QueryParams,
-            Panel::QueryParams => Panel::Headers,
-            Panel::Headers => Panel::Body,
-            Panel::Body => Panel::Response,
-            Panel::Response => Panel::Url,
-        };
-    }
-
-    fn prev_panel(&mut self) {
-        self.active_panel = match self.active_panel {
-            Panel::Url => Panel::Response,
-            Panel::QueryParams => Panel::Url,
-            Panel::Headers => Panel::QueryParams,
-            Panel::Body => Panel::Headers,
-            Panel::Response => Panel::Body,
-        };
-    }
-
-    fn handle_char_input(&mut self, c: char) {
-        let req = InputRequest::InsertChar(c);
-        match self.active_panel {
-            Panel::Url => {
-                self.request.url.handle(req);
-            }
-            Panel::Body => {
-                self.request.body.handle(req);
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_backspace(&mut self) {
-        let req = InputRequest::DeletePrevChar;
-        match self.active_panel {
-            Panel::Url => {
-                self.request.url.handle(req);
-            }
-            Panel::Body => {
-                self.request.body.handle(req);
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_enter_input(&mut self) {
-        let req = InputRequest::InsertChar('\n');
-        match self.active_panel {
-            Panel::Url => {
-                self.request.url.handle(req);
-            }
-            Panel::Body => {
-                self.request.body.handle(req);
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_delete(&mut self) {
-        let req = InputRequest::DeleteNextChar;
-        match self.active_panel {
-            Panel::Url => {
-                self.request.url.handle(req);
-            }
-            Panel::Body => {
-                self.request.body.handle(req);
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_cursor_left(&mut self) {
-        let req = InputRequest::GoToPrevChar;
-        match self.active_panel {
-            Panel::Url => {
-                self.request.url.handle(req);
-            }
-            Panel::Body => {
-                self.request.body.handle(req);
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_cursor_right(&mut self) {
-        let req = InputRequest::GoToNextChar;
-        match self.active_panel {
-            Panel::Url => {
-                self.request.url.handle(req);
-            }
-            Panel::Body => {
-                self.request.body.handle(req);
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_cursor_home(&mut self) {
-        let req = InputRequest::GoToStart;
-        match self.active_panel {
-            Panel::Url => {
-                self.request.url.handle(req);
-            }
-            Panel::Body => {
-                self.request.body.handle(req);
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_cursor_end(&mut self) {
-        let req = InputRequest::GoToEnd;
-        match self.active_panel {
-            Panel::Url => {
-                self.request.url.handle(req);
-            }
-            Panel::Body => {
-                self.request.body.handle(req);
-            }
-            _ => {}
-        }
-    }
-
-    fn handle_query_param_char_input(&mut self, c: char) {
-        if self.editing_header_key {
-            self.new_query_param_key.push(c);
-        } else {
-            self.new_query_param_value.push(c);
-        }
-    }
-
-    fn handle_header_char_input(&mut self, c: char) {
-        if self.editing_header_key {
-            self.new_header_key.push(c);
-        } else {
-            self.new_header_value.push(c);
-        }
-    }
-
-    fn handle_query_param_backspace(&mut self) {
-        if self.editing_query_param_key {
-            self.new_query_param_key.pop();
-        } else {
-            self.new_query_param_value.pop();
-        }
-    }
-
-    fn handle_header_backspace(&mut self) {
-        if self.editing_header_key {
-            self.new_header_key.pop();
-        } else {
-            self.new_header_value.pop();
-        }
-    }
-
-    fn add_query_param(&mut self) {
-        if !self.new_query_param_key.is_empty() {
-            self.request.query_params.push((
-                self.new_query_param_key.clone(),
-                self.new_query_param_value.clone(),
-            ));
-            self.new_query_param_key.clear();
-            self.new_query_param_value.clear();
-            self.editing_header_key = true;
-        }
-    }
-
-    fn add_header(&mut self) {
-        if !self.new_header_key.is_empty() {
-            self.request
-                .headers
-                .push((self.new_header_key.clone(), self.new_header_value.clone()));
-            self.new_header_key.clear();
-            self.new_header_value.clear();
-            self.editing_header_key = true;
-        }
-    }
-
-    fn delete_header(&mut self) {
-        if !self.request.headers.is_empty() && self.selected_header < self.request.headers.len() {
-            self.request.headers.remove(self.selected_header);
-            if self.selected_header > 0 && self.selected_header >= self.request.headers.len() {
-                self.selected_header = self.request.headers.len().saturating_sub(1);
-            }
-        }
-    }
-
-    fn delete_query_param(&mut self) {
-        if !self.request.query_params.is_empty()
-            && self.selected_query_param < self.request.query_params.len()
-        {
-            self.request.query_params.remove(self.selected_query_param);
-            if self.selected_query_param > 0
-                && self.selected_query_param >= self.request.query_params.len()
-            {
-                self.selected_query_param = self.request.query_params.len().saturating_sub(1);
-            }
+        match self.mode {
+            Mode::Normal => match key.code {
+                KeyCode::Backspace => todo!(),
+                KeyCode::Enter => self.send_request(),
+                KeyCode::Left => todo!(),
+                KeyCode::Right => todo!(),
+                KeyCode::Up => todo!(),
+                KeyCode::Down => todo!(),
+                KeyCode::Home => todo!(),
+                KeyCode::End => todo!(),
+                KeyCode::PageUp => todo!(),
+                KeyCode::PageDown => todo!(),
+                KeyCode::Tab => todo!(),
+                KeyCode::BackTab => todo!(),
+                KeyCode::Delete => todo!(),
+                KeyCode::Insert => todo!(),
+                KeyCode::F(_) => todo!(),
+                KeyCode::Char('i') => self.mode = Mode::Edit,
+                KeyCode::Char('q') => self.should_quit = true,
+                KeyCode::Char('m') => match self.request.method {
+                    HttpMethod::GET => self.request.method = HttpMethod::POST,
+                    HttpMethod::POST => self.request.method = HttpMethod::PUT,
+                    HttpMethod::PUT => self.request.method = HttpMethod::DELETE,
+                    HttpMethod::DELETE => self.request.method = HttpMethod::PATCH,
+                    HttpMethod::PATCH => self.request.method = HttpMethod::HEAD,
+                    HttpMethod::HEAD => self.request.method = HttpMethod::OPTIONS,
+                    HttpMethod::OPTIONS => self.request.method = HttpMethod::GET,
+                },
+                KeyCode::Null => todo!(),
+                KeyCode::Esc => todo!(),
+                KeyCode::CapsLock => todo!(),
+                KeyCode::ScrollLock => todo!(),
+                KeyCode::NumLock => todo!(),
+                KeyCode::PrintScreen => todo!(),
+                KeyCode::Pause => todo!(),
+                KeyCode::Menu => todo!(),
+                KeyCode::KeypadBegin => todo!(),
+                _ => {}
+            },
+            Mode::Edit => match self.active_panel {
+                Panel::Url => match key.code {
+                    KeyCode::Esc => self.mode = Mode::Normal,
+                    KeyCode::Enter => self.send_request(),
+                    _ => {
+                        self.url_input.input(key);
+                    }
+                },
+                Panel::QueryParams => todo!(),
+                Panel::Headers => todo!(),
+                Panel::Body => todo!(),
+                Panel::Response => todo!(),
+            },
+            Mode::HeaderEdit => todo!(),
+            Mode::QueryParamEdit => todo!(),
         }
     }
 
@@ -542,7 +243,7 @@ impl App {
 
         let request = self.request.clone();
         let method = self.request.method.clone();
-        let url = self.request.url.to_string();
+        let url = self.url_input.lines().join("\n");
         let body = self.request.body.to_string();
         let headers = self.request.headers.clone();
         let query_params = self.request.query_params.clone();
@@ -594,6 +295,12 @@ impl App {
             ])
             .split(frame.area());
 
+        // URL input layout
+        let url_input_layout = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Length(10), Constraint::Min(5)])
+            .split(main_layout[0]);
+
         // URL Bar
         let method_color = match self.request.method {
             HttpMethod::GET => Color::Green,
@@ -605,32 +312,12 @@ impl App {
             HttpMethod::OPTIONS => Color::LightBlue,
         };
 
-        let url_title = format!("{:?}", self.request.method);
-        let url_style = if self.active_panel == Panel::Url && self.mode == Mode::Edit {
-            Style::default().bg(Color::DarkGray)
-        } else if self.active_panel == Panel::Url {
-            Style::default().bg(Color::Cyan)
-        } else {
-            Style::default()
-        };
+        let method = Paragraph::new(self.request.method.to_string())
+            .style(Style::new().fg(method_color))
+            .block(Block::new().borders(Borders::ALL).title("Method"));
 
-        let url_display = self.request.url.to_string();
-        let url_bar = Paragraph::new(Line::from(vec![
-            Span::styled(
-                format!("{} ", url_title),
-                Style::default()
-                    .fg(method_color)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(&url_display, url_style),
-        ]))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Request")
-                .border_type(BorderType::Rounded),
-        );
-        frame.render_widget(url_bar, main_layout[0]);
+        frame.render_widget(method, url_input_layout[0]);
+        frame.render_widget(&self.url_input, url_input_layout[1]);
 
         // Show cursor for URL field when in edit mode
         if self.mode == Mode::Edit && self.active_panel == Panel::Url {
@@ -937,9 +624,9 @@ impl App {
             let response_layout = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Length(1), // Status line
+                    Constraint::Length(1),  // Status line
                     Constraint::Length(15), // Response headers
-                    Constraint::Min(1),    // Response body
+                    Constraint::Min(1),     // Response body
                 ])
                 .split(area);
 
@@ -1003,7 +690,7 @@ impl App {
     }
 }
 
-impl Default for App {
+impl<'a> Default for App<'a> {
     fn default() -> Self {
         Self::new()
     }
@@ -1020,7 +707,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             && let Event::Key(key) = event::read()?
             && key.kind == KeyEventKind::Press
         {
-            app.handle_key(key.code, key.modifiers);
+            app.handle_key(key);
+            // app.url_input.input(key);
         }
 
         if let Ok(resp) = app.rx.try_recv() {
