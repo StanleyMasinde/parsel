@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, io::ErrorKind, time::Duration};
+use std::{collections::HashMap, fmt::Display, time::Duration};
 
 use ratatui::{
     Frame,
@@ -7,7 +7,7 @@ use ratatui::{
         event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
     },
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Color, Modifier, Style, Stylize},
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Wrap},
 };
@@ -47,7 +47,6 @@ impl Display for HttpMethod {
 #[derive(Debug, Clone)]
 struct Request {
     method: HttpMethod,
-    url: Input,
     headers: Vec<(String, String)>,
     query_params: Vec<(String, String)>,
     body: Input,
@@ -137,7 +136,6 @@ impl Default for Request {
         let app_version = env!("CARGO_PKG_VERSION");
         Self {
             method: HttpMethod::GET,
-            url: "https://api.restful-api.dev/objects".into(),
             headers: vec![
                 ("Content-Type".to_string(), "application/json".to_string()),
                 (
@@ -157,12 +155,7 @@ impl<'a> App<'a> {
         let (err_tx, err_rx) = std::sync::mpsc::channel::<String>();
         let (his_tx, his_rx) = std::sync::mpsc::channel::<Request>();
         let http_client = http::HttpClient::default();
-        let mut url_input = TextArea::default();
-        url_input.set_block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title("Enter the URL"),
-        );
+        let url_input = TextArea::default();
 
         Self {
             request: Request::default(),
@@ -315,7 +308,7 @@ impl<'a> App<'a> {
         });
     }
 
-    fn render(&self, frame: &mut Frame) {
+    fn render(&mut self, frame: &mut Frame) {
         // Main vertical layout
         let main_layout = Layout::default()
             .direction(Direction::Vertical)
@@ -345,8 +338,25 @@ impl<'a> App<'a> {
 
         let method = Paragraph::new(self.request.method.to_string())
             .style(Style::new().fg(method_color))
-            .block(Block::new().borders(Borders::ALL).title("Method"));
+            .block(
+                Block::new()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .title("Method"),
+            );
 
+        let url_bg_color = match self.active_panel {
+            Panel::Url => Color::Cyan,
+            _ => Color::Reset,
+        };
+
+        self.url_input.set_block(
+            Block::default()
+                .fg(url_bg_color)
+                .borders(Borders::all())
+                .border_type(BorderType::Rounded)
+                .title("URL"),
+        );
         frame.render_widget(method, url_input_layout[0]);
         frame.render_widget(&self.url_input, url_input_layout[1]);
 
