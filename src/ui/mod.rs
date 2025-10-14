@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Display, time::Duration};
+use std::{collections::HashMap, fmt::Display, io::ErrorKind, time::Duration};
 
 use ratatui::{
     Frame,
@@ -303,7 +303,13 @@ impl<'a> App<'a> {
                     his_tx.send(request).unwrap();
                 }
                 Err(err) => {
-                    let _ = error_tx.send(err.to_string());
+                    let mut message = "Could not make the request due to an unknown reason";
+                    if err.is_builder() {
+                        message = "Failed to make the request please check the URL";
+                    } else if err.is_connect() {
+                        message = "Failed to connect to the internet, please check your connection";
+                    }
+                    let _ = error_tx.send(message.to_string());
                 }
             }
         });
