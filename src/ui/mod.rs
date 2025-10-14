@@ -91,6 +91,19 @@ enum Mode {
     QueryParamEdit,
 }
 
+impl Display for Mode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mode = match self {
+            Mode::Normal => "NORMAL",
+            Mode::Edit => "EDIT",
+            Mode::HeaderEdit => "HEADER EDIT",
+            Mode::QueryParamEdit => "QueryParamEdit",
+        };
+
+        write!(f, "{}", mode)
+    }
+}
+
 #[derive(Debug)]
 struct App<'a> {
     request: Request,
@@ -392,10 +405,10 @@ impl<'a> App<'a> {
             _ => Color::Red,
         };
         let status_bar = Paragraph::new(Line::from(vec![
+            Span::styled("Mode: ", Style::default().fg(Color::Gray)),
+            Span::styled(format!("{} ", self.mode), Style::default().fg(Color::Cyan)),
             Span::styled("Response time: ", Style::default().fg(Color::Cyan)),
             Span::styled(format!("{} ms", response_time), Style::default().fg(color)),
-            Span::styled(" • Mode: ", Style::default().fg(Color::Gray)),
-            Span::styled(format!("{:?}", self.mode), Style::default().fg(Color::Cyan)),
             Span::styled(" • ", Style::default().fg(Color::Gray)),
             Span::styled(help_text, Style::default().fg(Color::Gray)),
         ]))
