@@ -350,6 +350,8 @@ impl<'a> App<'a> {
             _ => Color::Reset,
         };
 
+        self.url_input
+            .set_placeholder_text("https://jsonplaceholder.typicode.com/posts");
         self.url_input.set_block(
             Block::default()
                 .fg(url_bg_color)
