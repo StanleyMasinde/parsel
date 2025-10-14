@@ -344,17 +344,6 @@ impl<'a> App<'a> {
         frame.render_widget(method, url_input_layout[0]);
         frame.render_widget(&self.url_input, url_input_layout[1]);
 
-        // Show cursor for URL field when in edit mode
-        if self.mode == Mode::Edit && self.active_panel == Panel::Url {
-            let layout = main_layout[1];
-            let width = layout.width.saturating_sub(2); // Account for borders
-            let scroll = self.request.url.visual_scroll(width as usize);
-            // Position cursor accounting for method prefix and scroll
-            let method_width = format!("{:?} ", self.request.method).len() as u16;
-            let x = (self.request.url.visual_cursor().max(scroll) - scroll) as u16;
-            frame.set_cursor_position((layout.x + 1 + method_width + x, layout.y + 1));
-        }
-
         // Main content - split horizontally
         let content_layout = Layout::default()
             .direction(Direction::Horizontal)
