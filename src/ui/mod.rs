@@ -48,7 +48,6 @@ impl Display for HttpMethod {
 struct Request {
     method: HttpMethod,
     headers: Vec<(String, String)>,
-    query_params: Vec<(String, String)>,
     body: Input,
 }
 
@@ -87,7 +86,6 @@ enum Mode {
     Normal,
     Edit,
     HeaderEdit,
-    QueryParamEdit,
 }
 
 impl Display for Mode {
@@ -96,7 +94,6 @@ impl Display for Mode {
             Mode::Normal => "NORMAL",
             Mode::Edit => "EDIT",
             Mode::HeaderEdit => "HEADER EDIT",
-            Mode::QueryParamEdit => "QueryParamEdit",
         };
 
         write!(f, "{}", mode)
@@ -124,11 +121,9 @@ struct App<'a> {
     his_tx: std::sync::mpsc::Sender<Request>,
     his_rx: std::sync::mpsc::Receiver<Request>,
     http_client: http::HttpClient,
-    new_query_param_value: String,
-    editing_query_param_key: bool,
-    new_query_param_key: String,
     url_input: TextArea<'a>,
     response_scroll: u16,
+    query_params_input: TextArea<'a>,
 }
 
 impl Default for Request {
@@ -145,7 +140,6 @@ impl Default for Request {
                 ),
             ],
             body: "".into(),
-            query_params: vec![],
         }
     }
 }
@@ -157,6 +151,7 @@ impl<'a> App<'a> {
         let (his_tx, his_rx) = std::sync::mpsc::channel::<Request>();
         let http_client = http::HttpClient::default();
         let url_input = TextArea::default();
+        let query_params_input = TextArea::default();
 
         Self {
             request: Request::default(),
@@ -178,10 +173,8 @@ impl<'a> App<'a> {
             his_tx,
             his_rx,
             http_client,
-            new_query_param_value: String::new(),
-            editing_query_param_key: false,
-            new_query_param_key: String::new(),
             url_input,
+            query_params_input,
             response_scroll: 0,
         }
     }
@@ -266,13 +259,18 @@ impl<'a> App<'a> {
                         self.url_input.input(key);
                     }
                 },
-                Panel::QueryParams => todo!(),
+                Panel::QueryParams => match key.code {
+                    KeyCode::Esc => self.mode = Mode::Normal,
+                    KeyCode::Tab => self.query_params_input.insert_char(':'),
+                    _ => {
+                        self.query_params_input.input(key);
+                    }
+                },
                 Panel::Headers => todo!(),
                 Panel::Body => todo!(),
                 Panel::Response => todo!(),
             },
             Mode::HeaderEdit => todo!(),
-            Mode::QueryParamEdit => todo!(),
         }
     }
 
@@ -284,13 +282,12 @@ impl<'a> App<'a> {
         let url = self.url_input.lines().join("\n");
         let body = self.request.body.to_string();
         let headers = self.request.headers.clone();
-        let query_params = self.request.query_params.clone();
         let tx = self.tx.clone();
         let his_tx = self.his_tx.clone();
         let error_tx = self.err_tx.clone();
         let mut http_client = self.http_client.clone();
         http_client.request_headers = headers;
-        http_client.query_params = query_params;
+        http_client.query_params = self.query_params_input.lines().to_vec();
 
         std::thread::spawn(move || {
             let json_body = serde_json::from_str(&body.replace("\n", "")).unwrap_or(None);
@@ -491,7 +488,7 @@ impl<'a> App<'a> {
         }
     }
 
-    fn render_query_params_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {
+    fn render_query_params_panel(&mut self, frame: &mut Frame, area: ratatui::prelude::Rect) {
         let headers_style = if self.active_panel == Panel::QueryParams && self.mode == Mode::Normal
         {
             Style::default().fg(Color::White).bg(Color::Cyan)
@@ -501,53 +498,16 @@ impl<'a> App<'a> {
             Style::default().fg(Color::Gray)
         };
 
-        let mut query_param_items: Vec<ListItem> = self
-            .request
-            .query_params
-            .iter()
-            .enumerate()
-            .map(|(i, (k, v))| {
-                let style = if i == self.selected_header && self.active_panel == Panel::QueryParams
-                {
-                    Style::default().fg(Color::Black).bg(Color::Yellow)
-                } else {
-                    Style::default()
-                };
-                ListItem::new(format!("{}: {}", k, v)).style(style)
-            })
-            .collect();
-
-        // Add new query param input if in header edit mode
-        if self.mode == Mode::QueryParamEdit {
-            let new_query_param_text = if self.editing_query_param_key {
-                format!(
-                    "→ {}: {}",
-                    self.new_query_param_key, self.new_query_param_value
-                )
-            } else {
-                format!(
-                    "{}: → {}",
-                    self.new_query_param_key, self.new_query_param_value
-                )
-            };
-            query_param_items.push(
-                ListItem::new(new_query_param_text).style(
-                    Style::default()
-                        .fg(Color::Green)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            );
-        }
-
-        let query_params = List::new(query_param_items)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_type(BorderType::Rounded)
-                    .title("Query Params"),
-            )
-            .style(headers_style);
-        frame.render_widget(query_params, area);
+        self.query_params_input.set_block(
+            Block::default()
+                .title("Query Params")
+                .borders(Borders::all())
+                .border_type(BorderType::Rounded)
+                .style(headers_style),
+        );
+        self.query_params_input
+            .set_line_number_style(Style::default());
+        frame.render_widget(&self.query_params_input, area);
     }
 
     fn render_headers_panel(&self, frame: &mut Frame, area: ratatui::prelude::Rect) {

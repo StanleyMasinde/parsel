@@ -24,6 +24,22 @@ fn vec_to_headermap(pairs: Vec<(String, String)>) -> HeaderMap {
     headers
 }
 
+fn vec_to_query_params(params: &[String]) -> Vec<(&str, &str)> {
+    params
+        .iter()
+        .filter_map(|line| {
+            let mut parts = line.splitn(2, ':');
+            let key = parts.next()?.trim();
+            let value = parts.next().unwrap_or("").trim();
+            if key.is_empty() {
+                None
+            } else {
+                Some((key, value))
+            }
+        })
+        .collect()
+}
+
 fn headers_to_map(headers: &HeaderMap) -> HashMap<String, String> {
     headers
         .iter()
@@ -58,7 +74,7 @@ pub trait RestClient {
 #[derive(Debug, Default, Clone)]
 pub struct HttpClient {
     pub request_headers: Vec<(String, String)>,
-    pub query_params: Vec<(String, String)>,
+    pub query_params: Vec<String>,
 }
 
 impl HttpClient {
@@ -83,7 +99,7 @@ impl RestClient for HttpClient {
         let client = reqwest::blocking::Client::new();
         let response = client
             .get(url)
-            .query(&self.query_params)
+            .query(&vec_to_query_params(&self.query_params))
             .headers(vec_to_headermap(request_headers.to_vec()))
             .send()?;
 
