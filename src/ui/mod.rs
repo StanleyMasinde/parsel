@@ -128,6 +128,7 @@ struct App<'a> {
     editing_query_param_key: bool,
     new_query_param_key: String,
     url_input: TextArea<'a>,
+    response_scroll: u16,
 }
 
 impl Default for Request {
@@ -181,6 +182,7 @@ impl<'a> App<'a> {
             editing_query_param_key: false,
             new_query_param_key: String::new(),
             url_input,
+            response_scroll: 0,
         }
     }
 
@@ -216,6 +218,24 @@ impl<'a> App<'a> {
                 KeyCode::Delete => todo!(),
                 KeyCode::Insert => todo!(),
                 KeyCode::F(_) => todo!(),
+                KeyCode::Char('j') => match self.active_panel {
+                    Panel::Url => todo!(),
+                    Panel::QueryParams => todo!(),
+                    Panel::Headers => todo!(),
+                    Panel::Body => todo!(),
+                    Panel::Response => self.response_scroll += 10,
+                },
+                KeyCode::Char('k') => match self.active_panel {
+                    Panel::Url => todo!(),
+                    Panel::QueryParams => todo!(),
+                    Panel::Headers => todo!(),
+                    Panel::Body => todo!(),
+                    Panel::Response => {
+                        if self.response_scroll > 0 {
+                            self.response_scroll -= 10;
+                        }
+                    }
+                },
                 KeyCode::Char('i') => self.mode = Mode::Edit,
                 KeyCode::Char('q') => self.should_quit = true,
                 KeyCode::Char('m') => match self.request.method {
@@ -677,6 +697,7 @@ impl<'a> App<'a> {
                         .fg(status_color)
                         .add_modifier(Modifier::BOLD),
                 );
+
             frame.render_widget(status, response_layout[0]);
 
             // Response headers
@@ -705,7 +726,8 @@ impl<'a> App<'a> {
                         .title("Response Body"),
                 )
                 .style(response_style)
-                .wrap(Wrap { trim: false });
+                .wrap(Wrap { trim: false })
+                .scroll((self.response_scroll, 0));
             frame.render_widget(resp_body, response_layout[2]);
         } else {
             let empty_response = Paragraph::new("No response yet\n\nPress Enter to send request")
