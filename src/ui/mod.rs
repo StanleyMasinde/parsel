@@ -367,6 +367,15 @@ impl<'a> App<'a> {
             _ => Color::Reset,
         };
 
+        let headers_style = if self.active_panel == Panel::Url && self.mode == Mode::Normal
+        {
+            Style::default().fg(Color::White).bg(Color::Cyan)
+        } else if self.active_panel == Panel::QueryParams {
+            Style::default().fg(Color::White).bg(Color::DarkGray)
+        } else {
+            Style::default().fg(Color::Gray)
+        };
+
         self.url_input
             .set_placeholder_text("https://jsonplaceholder.typicode.com/posts");
         self.url_input.set_block(
@@ -374,7 +383,8 @@ impl<'a> App<'a> {
                 .fg(url_bg_color)
                 .borders(Borders::all())
                 .border_type(BorderType::Rounded)
-                .title("URL"),
+                .title("URL")
+                .style(headers_style),
         );
         frame.render_widget(method, url_input_layout[0]);
         frame.render_widget(&self.url_input, url_input_layout[1]);
