@@ -85,7 +85,6 @@ enum Panel {
 enum Mode {
     Normal,
     Edit,
-    HeaderEdit,
 }
 
 impl Display for Mode {
@@ -93,7 +92,6 @@ impl Display for Mode {
         let mode = match self {
             Mode::Normal => "NORMAL",
             Mode::Edit => "EDIT",
-            Mode::HeaderEdit => "HEADER EDIT",
         };
 
         write!(f, "{}", mode)
@@ -110,10 +108,6 @@ struct App<'a> {
     is_loading: bool,
     error: Option<String>,
     mode: Mode,
-    selected_header: usize,
-    editing_header_key: bool,
-    new_header_key: String,
-    new_header_value: String,
     tx: std::sync::mpsc::Sender<Response>,
     rx: std::sync::mpsc::Receiver<Response>,
     err_tx: std::sync::mpsc::Sender<String>,
@@ -124,6 +118,7 @@ struct App<'a> {
     url_input: TextArea<'a>,
     response_scroll: u16,
     query_params_input: TextArea<'a>,
+    header_items: TextArea<'a>,
 }
 
 impl Default for Request {
@@ -152,6 +147,7 @@ impl<'a> App<'a> {
         let http_client = http::HttpClient::default();
         let url_input = TextArea::default();
         let query_params_input = TextArea::default();
+        let header_items = TextArea::default();
 
         Self {
             request: Request::default(),
@@ -162,10 +158,6 @@ impl<'a> App<'a> {
             is_loading: false,
             error: None,
             mode: Mode::Normal,
-            selected_header: 0,
-            editing_header_key: true,
-            new_header_key: String::new(),
-            new_header_value: String::new(),
             tx,
             rx,
             err_rx,
@@ -176,6 +168,7 @@ impl<'a> App<'a> {
             url_input,
             query_params_input,
             response_scroll: 0,
+            header_items,
         }
     }
 
@@ -270,7 +263,6 @@ impl<'a> App<'a> {
                 Panel::Body => todo!(),
                 Panel::Response => todo!(),
             },
-            Mode::HeaderEdit => todo!(),
         }
     }
 
@@ -367,8 +359,7 @@ impl<'a> App<'a> {
             _ => Color::Reset,
         };
 
-        let headers_style = if self.active_panel == Panel::Url && self.mode == Mode::Normal
-        {
+        let headers_style = if self.active_panel == Panel::Url && self.mode == Mode::Normal {
             Style::default().fg(Color::White).bg(Color::Cyan)
         } else if self.active_panel == Panel::QueryParams {
             Style::default().fg(Color::White).bg(Color::DarkGray)
@@ -428,7 +419,6 @@ impl<'a> App<'a> {
             (Mode::Edit, Panel::Body) => {
                 "Esc: Normal • ←→: Move cursor • Home/End • Enter: Newline"
             }
-            (Mode::HeaderEdit, _) => "Tab: Next field • Enter: Save • Esc: Cancel",
             _ => "Esc: Normal mode",
         };
 
@@ -529,38 +519,7 @@ impl<'a> App<'a> {
             Style::default().fg(Color::Gray)
         };
 
-        let mut header_items: Vec<ListItem> = self
-            .request
-            .headers
-            .iter()
-            .enumerate()
-            .map(|(i, (k, v))| {
-                let style = if i == self.selected_header && self.active_panel == Panel::Headers {
-                    Style::default().fg(Color::Black).bg(Color::Yellow)
-                } else {
-                    Style::default()
-                };
-                ListItem::new(format!("{}: {}", k, v)).style(style)
-            })
-            .collect();
-
-        // Add new header input if in header edit mode
-        if self.mode == Mode::HeaderEdit {
-            let new_header_text = if self.editing_header_key {
-                format!("→ {}: {}", self.new_header_key, self.new_header_value)
-            } else {
-                format!("{}: → {}", self.new_header_key, self.new_header_value)
-            };
-            header_items.push(
-                ListItem::new(new_header_text).style(
-                    Style::default()
-                        .fg(Color::Green)
-                        .add_modifier(Modifier::BOLD),
-                ),
-            );
-        }
-
-        let headers = List::new(header_items)
+        let headers = Paragraph::new(self.header_items.lines().join("\n"))
             .block(
                 Block::default()
                     .borders(Borders::ALL)
