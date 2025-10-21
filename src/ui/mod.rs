@@ -361,7 +361,7 @@ impl<'a> App<'a> {
 
         let headers_style = if self.active_panel == Panel::Url && self.mode == Mode::Normal {
             Style::default().fg(Color::White).bg(Color::Cyan)
-        } else if self.active_panel == Panel::QueryParams {
+        } else if self.active_panel == Panel::Url {
             Style::default().fg(Color::White).bg(Color::DarkGray)
         } else {
             Style::default().fg(Color::Gray)
