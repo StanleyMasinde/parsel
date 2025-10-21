@@ -205,11 +205,14 @@ impl<'a> App<'a> {
                 KeyCode::Insert => todo!(),
                 KeyCode::F(_) => todo!(),
                 KeyCode::Char('j') => match self.active_panel {
-                    Panel::Url => todo!(),
-                    Panel::QueryParams => todo!(),
-                    Panel::Headers => todo!(),
-                    Panel::Body => todo!(),
-                    Panel::Response => self.response_scroll += 10,
+                    Panel::Url => self.active_panel = Panel::QueryParams,
+                    Panel::QueryParams => self.active_panel = Panel::Headers,
+                    Panel::Headers => self.active_panel = Panel::Body,
+                    Panel::Body => self.active_panel = Panel::Response,
+                    Panel::Response => {
+                        self.response_scroll += 10;
+                        self.active_panel = Panel::Response
+                    }
                 },
                 KeyCode::Char('k') => match self.active_panel {
                     Panel::Url => todo!(),
