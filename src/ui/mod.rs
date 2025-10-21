@@ -145,7 +145,7 @@ impl<'a> App<'a> {
         let (err_tx, err_rx) = std::sync::mpsc::channel::<String>();
         let (his_tx, his_rx) = std::sync::mpsc::channel::<Request>();
         let http_client = http::HttpClient::default();
-        let url_input = TextArea::default();
+        let url_input = TextArea::from("https://jsonplaceholder.typicode.com/posts".lines());
         let query_params_input = TextArea::default();
         let header_items = TextArea::default();
 
