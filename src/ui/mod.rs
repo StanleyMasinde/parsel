@@ -691,7 +691,6 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             && key.kind == KeyEventKind::Press
         {
             app.handle_key(key);
-            // app.url_input.input(key);
         }
 
         if let Ok(resp) = app.rx.try_recv() {
