@@ -99,6 +99,12 @@ impl Display for Mode {
 }
 
 #[derive(Debug)]
+enum InputField {
+    Key,
+    Value,
+}
+
+#[derive(Debug)]
 struct App<'a> {
     request: Request,
     response: Option<Response>,
@@ -119,6 +125,10 @@ struct App<'a> {
     response_scroll: u16,
     query_params_input: TextArea<'a>,
     header_items: TextArea<'a>,
+    key_input: TextArea<'a>,
+    val_input: TextArea<'a>,
+    focused_field: InputField,
+    edit_modal: bool,
 }
 
 impl Default for Request {
@@ -148,6 +158,8 @@ impl<'a> App<'a> {
         let url_input = TextArea::from("https://jsonplaceholder.typicode.com/posts".lines());
         let query_params_input = TextArea::default();
         let header_items = TextArea::default();
+        let key_input = TextArea::default();
+        let val_input = TextArea::default();
 
         Self {
             request: Request::default(),
@@ -169,6 +181,10 @@ impl<'a> App<'a> {
             query_params_input,
             response_scroll: 0,
             header_items,
+            key_input,
+            val_input,
+            focused_field: InputField::Key,
+            edit_modal: false,
         }
     }
 
@@ -445,6 +461,30 @@ impl<'a> App<'a> {
                 .border_type(BorderType::Rounded),
         );
         frame.render_widget(status_bar, main_layout[2]);
+
+        if self.edit_modal {
+            // A modal to add key: val data
+            let modal_area = Rect {
+                x: frame.area().width / 2 - 16,
+                y: frame.area().height / 2 - 3,
+                width: 30,
+                height: 5,
+            };
+            frame.render_widget(Clear, modal_area);
+
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .split(modal_area);
+
+            self.key_input
+                .set_block(Block::default().title("Key").borders(Borders::all()));
+            self.val_input
+                .set_block(Block::default().title("Value").borders(Borders::all()));
+
+            frame.render_widget(&self.key_input, chunks[0]);
+            frame.render_widget(&self.val_input, chunks[1]);
+        }
 
         // Temporary loading indicator
         if self.is_loading {
