@@ -2,7 +2,6 @@ use std::{collections::HashMap, fmt::Display};
 
 use tui_input::Input;
 
-
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum HttpMethod {
@@ -71,10 +70,4 @@ impl Display for Mode {
 
         write!(f, "{}", mode)
     }
-}
-
-#[derive(Debug)]
-pub(crate) enum InputField {
-    Key,
-    Value,
 }

@@ -14,7 +14,10 @@ use ratatui::{
 };
 use tui_textarea::TextArea;
 
-use crate::{http::{self, RestClient}, ui::types::{HttpMethod, InputField, Mode, Panel, Request, Response}};
+use crate::{
+    http::{self, RestClient},
+    ui::types::{HttpMethod, Mode, Panel, Request, Response},
+};
 
 #[derive(Debug)]
 struct App<'a> {
@@ -39,7 +42,6 @@ struct App<'a> {
     header_items: TextArea<'a>,
     key_input: TextArea<'a>,
     val_input: TextArea<'a>,
-    focused_field: InputField,
     edit_modal: bool,
 }
 
@@ -95,7 +97,6 @@ impl<'a> App<'a> {
             header_items,
             key_input,
             val_input,
-            focused_field: InputField::Key,
             edit_modal: false,
         }
     }
@@ -105,16 +106,7 @@ impl<'a> App<'a> {
 
         match self.mode {
             Mode::Normal => match key.code {
-                KeyCode::Backspace => todo!(),
                 KeyCode::Enter => self.send_request(),
-                KeyCode::Left => todo!(),
-                KeyCode::Right => todo!(),
-                KeyCode::Up => todo!(),
-                KeyCode::Down => todo!(),
-                KeyCode::Home => todo!(),
-                KeyCode::End => todo!(),
-                KeyCode::PageUp => todo!(),
-                KeyCode::PageDown => todo!(),
                 KeyCode::Tab => match self.active_panel {
                     Panel::Url => self.active_panel = Panel::QueryParams,
                     Panel::QueryParams => self.active_panel = Panel::Headers,
@@ -129,9 +121,6 @@ impl<'a> App<'a> {
                     Panel::Body => self.active_panel = Panel::Headers,
                     Panel::Response => self.active_panel = Panel::Body,
                 },
-                KeyCode::Delete => todo!(),
-                KeyCode::Insert => todo!(),
-                KeyCode::F(_) => todo!(),
                 KeyCode::Char('j') => match self.active_panel {
                     Panel::Url => self.active_panel = Panel::QueryParams,
                     Panel::QueryParams => self.active_panel = Panel::Headers,
@@ -142,17 +131,12 @@ impl<'a> App<'a> {
                         self.active_panel = Panel::Response
                     }
                 },
-                KeyCode::Char('k') => match self.active_panel {
-                    Panel::Url => todo!(),
-                    Panel::QueryParams => todo!(),
-                    Panel::Headers => todo!(),
-                    Panel::Body => todo!(),
-                    Panel::Response => {
-                        if self.response_scroll > 0 {
-                            self.response_scroll -= 10;
-                        }
+                KeyCode::Char('k') if self.active_panel == Panel::Response => {
+                    if self.response_scroll > 0 {
+                        self.response_scroll -= 10;
                     }
-                },
+                }
+                KeyCode::Char('k') => {}
                 KeyCode::Char('i') => self.mode = Mode::Edit,
                 KeyCode::Char('q') => self.should_quit = true,
                 KeyCode::Char('m') => match self.request.method {
@@ -164,15 +148,6 @@ impl<'a> App<'a> {
                     HttpMethod::HEAD => self.request.method = HttpMethod::OPTIONS,
                     HttpMethod::OPTIONS => self.request.method = HttpMethod::GET,
                 },
-                KeyCode::Null => todo!(),
-                KeyCode::Esc => todo!(),
-                KeyCode::CapsLock => todo!(),
-                KeyCode::ScrollLock => todo!(),
-                KeyCode::NumLock => todo!(),
-                KeyCode::PrintScreen => todo!(),
-                KeyCode::Pause => todo!(),
-                KeyCode::Menu => todo!(),
-                KeyCode::KeypadBegin => todo!(),
                 _ => {}
             },
             Mode::Edit => match self.active_panel {
@@ -190,9 +165,7 @@ impl<'a> App<'a> {
                         self.query_params_input.input(key);
                     }
                 },
-                Panel::Headers => todo!(),
-                Panel::Body => todo!(),
-                Panel::Response => todo!(),
+                _ => {}
             },
         }
     }
