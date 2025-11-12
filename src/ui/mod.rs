@@ -1,11 +1,13 @@
+mod keyboard;
 mod types;
+
 use std::time::Duration;
 
 use ratatui::{
     Frame,
     crossterm::{
         self,
-        event::{self, Event, KeyCode, KeyEvent, KeyEventKind},
+        event::{self, Event, KeyEventKind},
     },
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style, Stylize},
@@ -16,7 +18,10 @@ use tui_textarea::TextArea;
 
 use crate::{
     http::{self, RestClient},
-    ui::types::{HttpMethod, Mode, Panel, Request, Response},
+    ui::{
+        keyboard::handle_key,
+        types::{HttpMethod, Mode, Panel, Request, Response},
+    },
 };
 
 #[derive(Debug)]
@@ -98,75 +103,6 @@ impl<'a> App<'a> {
             key_input,
             val_input,
             edit_modal: false,
-        }
-    }
-
-    fn handle_key(&mut self, key: KeyEvent) {
-        self.error = None;
-
-        match self.mode {
-            Mode::Normal => match key.code {
-                KeyCode::Enter => self.send_request(),
-                KeyCode::Tab => match self.active_panel {
-                    Panel::Url => self.active_panel = Panel::QueryParams,
-                    Panel::QueryParams => self.active_panel = Panel::Headers,
-                    Panel::Headers => self.active_panel = Panel::Body,
-                    Panel::Body => self.active_panel = Panel::Response,
-                    Panel::Response => self.active_panel = Panel::Url,
-                },
-                KeyCode::BackTab => match self.active_panel {
-                    Panel::Url => self.active_panel = Panel::Response,
-                    Panel::QueryParams => self.active_panel = Panel::Url,
-                    Panel::Headers => self.active_panel = Panel::QueryParams,
-                    Panel::Body => self.active_panel = Panel::Headers,
-                    Panel::Response => self.active_panel = Panel::Body,
-                },
-                KeyCode::Char('j') => match self.active_panel {
-                    Panel::Url => self.active_panel = Panel::QueryParams,
-                    Panel::QueryParams => self.active_panel = Panel::Headers,
-                    Panel::Headers => self.active_panel = Panel::Body,
-                    Panel::Body => self.active_panel = Panel::Response,
-                    Panel::Response => {
-                        self.response_scroll += 10;
-                        self.active_panel = Panel::Response
-                    }
-                },
-                KeyCode::Char('k') if self.active_panel == Panel::Response => {
-                    if self.response_scroll > 0 {
-                        self.response_scroll -= 10;
-                    }
-                }
-                KeyCode::Char('k') => {}
-                KeyCode::Char('i') => self.mode = Mode::Edit,
-                KeyCode::Char('q') => self.should_quit = true,
-                KeyCode::Char('m') => match self.request.method {
-                    HttpMethod::GET => self.request.method = HttpMethod::POST,
-                    HttpMethod::POST => self.request.method = HttpMethod::PUT,
-                    HttpMethod::PUT => self.request.method = HttpMethod::DELETE,
-                    HttpMethod::DELETE => self.request.method = HttpMethod::PATCH,
-                    HttpMethod::PATCH => self.request.method = HttpMethod::HEAD,
-                    HttpMethod::HEAD => self.request.method = HttpMethod::OPTIONS,
-                    HttpMethod::OPTIONS => self.request.method = HttpMethod::GET,
-                },
-                _ => {}
-            },
-            Mode::Edit => match self.active_panel {
-                Panel::Url => match key.code {
-                    KeyCode::Esc => self.mode = Mode::Normal,
-                    KeyCode::Enter => self.send_request(),
-                    _ => {
-                        self.url_input.input(key);
-                    }
-                },
-                Panel::QueryParams => match key.code {
-                    KeyCode::Esc => self.mode = Mode::Normal,
-                    KeyCode::Tab => self.query_params_input.insert_char(':'),
-                    _ => {
-                        self.query_params_input.input(key);
-                    }
-                },
-                _ => {}
-            },
         }
     }
 
@@ -618,7 +554,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             && let Event::Key(key) = event::read()?
             && key.kind == KeyEventKind::Press
         {
-            app.handle_key(key);
+            handle_key(&mut app, key);
         }
 
         if let Ok(resp) = app.rx.try_recv() {
