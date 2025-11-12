@@ -1,4 +1,5 @@
-use std::{collections::HashMap, fmt::Display, time::Duration};
+mod types;
+use std::time::Duration;
 
 use ratatui::{
     Frame,
@@ -11,98 +12,9 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Wrap},
 };
-use tui_input::Input;
 use tui_textarea::TextArea;
 
-use crate::http::{self, RestClient};
-
-#[allow(clippy::upper_case_acronyms)]
-#[derive(Debug, Clone, PartialEq)]
-enum HttpMethod {
-    GET,
-    POST,
-    PUT,
-    DELETE,
-    PATCH,
-    HEAD,
-    OPTIONS,
-}
-
-impl Display for HttpMethod {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let method_string = match self {
-            HttpMethod::GET => "GET",
-            HttpMethod::POST => "POST",
-            HttpMethod::PUT => "PUT",
-            HttpMethod::DELETE => "DELETE",
-            HttpMethod::PATCH => "PATCH",
-            HttpMethod::HEAD => "HEAD",
-            HttpMethod::OPTIONS => "OPTIONS",
-        };
-
-        write!(f, "{}", method_string)
-    }
-}
-
-#[derive(Debug, Clone)]
-struct Request {
-    method: HttpMethod,
-    headers: Vec<(String, String)>,
-    body: Input,
-}
-
-#[derive(Debug, Clone)]
-struct Response {
-    status_code: u16,
-    status_text: String,
-    headers: HashMap<String, String>,
-    body: String,
-    duration_ms: u128,
-}
-
-impl Default for Response {
-    fn default() -> Self {
-        Self {
-            status_code: 200,
-            status_text: "Ok".to_string(),
-            headers: HashMap::new(),
-            body: Default::default(),
-            duration_ms: Default::default(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum Panel {
-    Url,
-    QueryParams,
-    Headers,
-    Body,
-    Response,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Mode {
-    Normal,
-    Edit,
-}
-
-impl Display for Mode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mode = match self {
-            Mode::Normal => "NORMAL",
-            Mode::Edit => "EDIT",
-        };
-
-        write!(f, "{}", mode)
-    }
-}
-
-#[derive(Debug)]
-enum InputField {
-    Key,
-    Value,
-}
+use crate::{http::{self, RestClient}, ui::types::{HttpMethod, InputField, Mode, Panel, Request, Response}};
 
 #[derive(Debug)]
 struct App<'a> {
