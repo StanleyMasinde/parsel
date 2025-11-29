@@ -78,16 +78,16 @@ pub struct HttpClient {
 }
 
 impl HttpClient {
-    fn get_status_text(&self, status: StatusCode) -> String {
+    fn get_status_text(&self, status: StatusCode) -> &str {
         match status {
-            StatusCode::OK => "OK".to_string(),
-            StatusCode::CREATED => "Created".to_string(),
-            StatusCode::NO_CONTENT => "No Content".to_string(),
-            StatusCode::BAD_REQUEST => "Bad Request".to_string(),
-            StatusCode::UNAUTHORIZED => "Unauthorized".to_string(),
-            StatusCode::FORBIDDEN => "Forbidden".to_string(),
-            StatusCode::NOT_FOUND => "Not found".to_string(),
-            _ => "Unknown".to_string(),
+            StatusCode::OK => "OK",
+            StatusCode::CREATED => "Created",
+            StatusCode::NO_CONTENT => "No Content",
+            StatusCode::BAD_REQUEST => "Bad Request",
+            StatusCode::UNAUTHORIZED => "Unauthorized",
+            StatusCode::FORBIDDEN => "Forbidden",
+            StatusCode::NOT_FOUND => "Not found",
+            _ => "Unknown",
         }
     }
 }
@@ -113,7 +113,7 @@ impl RestClient for HttpClient {
         let res = HttpResponse {
             status,
             body: text,
-            status_text,
+            status_text: status_text.to_string(),
             headers,
             elapsed,
         };
@@ -144,7 +144,7 @@ impl RestClient for HttpClient {
         let res = HttpResponse {
             status,
             body: text,
-            status_text,
+            status_text: status_text.to_string(),
             headers,
             elapsed,
         };
@@ -176,7 +176,7 @@ impl RestClient for HttpClient {
         let res = HttpResponse {
             status,
             body: text,
-            status_text,
+            status_text: status_text.to_string(),
             headers,
             elapsed,
         };
@@ -208,7 +208,7 @@ impl RestClient for HttpClient {
         let res = HttpResponse {
             status,
             body: text,
-            status_text,
+            status_text: status_text.to_string(),
             headers,
             elapsed,
         };
@@ -235,7 +235,7 @@ impl RestClient for HttpClient {
         let res = HttpResponse {
             status,
             body: text,
-            status_text,
+            status_text: status_text.to_string(),
             headers,
             elapsed,
         };
