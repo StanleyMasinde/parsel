@@ -142,19 +142,6 @@ pub(crate) fn render(app: &mut App, frame: &mut Frame) {
             height: 5,
         };
         frame.render_widget(Clear, modal_area);
-
-        let chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .split(modal_area);
-
-        app.key_input
-            .set_block(Block::default().title("Key").borders(Borders::all()));
-        app.val_input
-            .set_block(Block::default().title("Value").borders(Borders::all()));
-
-        frame.render_widget(&app.key_input, chunks[0]);
-        frame.render_widget(&app.val_input, chunks[1]);
     }
 
     // Temporary loading indicator
@@ -223,7 +210,7 @@ fn render_query_params_panel(app: &mut App, frame: &mut Frame, area: ratatui::pr
     frame.render_widget(&app.query_params_input, area);
 }
 
-fn render_headers_panel(app: &App, frame: &mut Frame, area: ratatui::prelude::Rect) {
+fn render_headers_panel(app: &mut App, frame: &mut Frame, area: ratatui::prelude::Rect) {
     let headers_style = if app.active_panel == Panel::Headers && app.mode == Mode::Normal {
         Style::default().fg(Color::White).bg(Color::Cyan)
     } else if app.active_panel == Panel::Headers {
@@ -232,15 +219,15 @@ fn render_headers_panel(app: &App, frame: &mut Frame, area: ratatui::prelude::Re
         Style::default().fg(Color::Gray)
     };
 
-    let headers = Paragraph::new(app.header_items.lines().join("\n"))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .title("Headers"),
-        )
-        .style(headers_style);
-    frame.render_widget(headers, area);
+    app.headers_input.set_block(
+        Block::default()
+            .title("Request Headers")
+            .borders(Borders::all())
+            .border_type(BorderType::Rounded)
+            .style(headers_style),
+    );
+    app.headers_input.set_line_number_style(Style::default());
+    frame.render_widget(&app.headers_input, area);
 }
 
 fn render_body_panel(app: &App, frame: &mut Frame, area: ratatui::prelude::Rect) {

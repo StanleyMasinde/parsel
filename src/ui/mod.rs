@@ -2,7 +2,7 @@ mod keyboard;
 mod renderer;
 mod types;
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use ratatui::crossterm::{
     self,
@@ -39,25 +39,14 @@ struct App<'a> {
     url_input: TextArea<'a>,
     response_scroll: u16,
     query_params_input: TextArea<'a>,
-    header_items: TextArea<'a>,
-    key_input: TextArea<'a>,
-    val_input: TextArea<'a>,
     edit_modal: bool,
+    headers_input: TextArea<'a>,
 }
 
 impl Default for Request {
     fn default() -> Self {
-        let app_name = env!("CARGO_PKG_NAME");
-        let app_version = env!("CARGO_PKG_VERSION");
         Self {
             method: HttpMethod::GET,
-            headers: vec![
-                ("Content-Type".to_string(), "application/json".to_string()),
-                (
-                    "User-Agent".to_string(),
-                    format!("{}/{}", app_name, app_version),
-                ),
-            ],
             body: "".into(),
         }
     }
@@ -69,11 +58,9 @@ impl<'a> App<'a> {
         let (err_tx, err_rx) = std::sync::mpsc::channel::<String>();
         let (his_tx, his_rx) = std::sync::mpsc::channel::<Request>();
         let http_client = http::HttpClient::default();
-        let url_input = TextArea::from("https://jsonplaceholder.typicode.com/posts".lines());
+        let url_input = TextArea::from("https://httpbin.io/anything".lines());
         let query_params_input = TextArea::default();
-        let header_items = TextArea::default();
-        let key_input = TextArea::default();
-        let val_input = TextArea::default();
+        let headers_input = TextArea::default();
 
         Self {
             request: Request::default(),
@@ -94,10 +81,8 @@ impl<'a> App<'a> {
             url_input,
             query_params_input,
             response_scroll: 0,
-            header_items,
-            key_input,
-            val_input,
             edit_modal: false,
+            headers_input,
         }
     }
 
@@ -108,13 +93,19 @@ impl<'a> App<'a> {
         let method = self.request.method.clone();
         let url = self.url_input.lines().join("\n");
         let body = self.request.body.to_string();
-        let headers = self.request.headers.clone();
         let tx = self.tx.clone();
         let his_tx = self.his_tx.clone();
         let error_tx = self.err_tx.clone();
-        let mut http_client = self.http_client.clone();
-        http_client.request_headers = headers;
-        http_client.query_params = self.query_params_input.lines().to_vec();
+
+        let query_params = Arc::new(self.query_params_input.lines());
+        let headers = self.headers_input.lines();
+
+        let http_client = Arc::new(
+            self.http_client
+                .clone()
+                .with_query_params(query_params.to_vec())
+                .with_request_headers(headers.to_vec()),
+        );
 
         std::thread::spawn(move || {
             let json_body = serde_json::from_str(&body.replace("\n", "")).unwrap_or(None);
@@ -127,6 +118,7 @@ impl<'a> App<'a> {
                 HttpMethod::HEAD => http_client.get(&url),
                 HttpMethod::OPTIONS => http_client.get(&url),
             };
+
             match res {
                 Ok(res) => {
                     let resp = Response {

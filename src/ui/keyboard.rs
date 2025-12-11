@@ -71,6 +71,13 @@ pub(crate) fn handle_key(app: &mut App, key: KeyEvent) {
                     app.query_params_input.input(key);
                 }
             },
+            Panel::Headers => match key.code {
+                KeyCode::Esc => app.mode = Mode::Normal,
+                KeyCode::Tab => app.headers_input.insert_char(':'),
+                _ => {
+                    app.headers_input.input(key);
+                }
+            },
             _ => {
                 panic!("All keys need to be handled!")
             }

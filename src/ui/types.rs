@@ -33,7 +33,6 @@ impl Display for HttpMethod {
 #[derive(Debug, Clone)]
 pub(crate) struct Request {
     pub(crate) method: HttpMethod,
-    pub(crate) headers: Vec<(String, String)>,
     pub(crate) body: Input,
 }
 

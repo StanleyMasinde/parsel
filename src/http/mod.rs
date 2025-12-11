@@ -13,24 +13,30 @@ pub struct HttpResponse {
     pub elapsed: u128,
 }
 
-fn vec_to_headermap(pairs: Vec<(String, String)>) -> HeaderMap {
+fn vec_to_headermap(pairs: Vec<String>) -> HeaderMap {
     let mut headers = HeaderMap::new();
-    for (k, v) in pairs {
-        let name = HeaderName::from_bytes(k.as_bytes())
-            .unwrap_or_else(|_| HeaderName::from_static("Fooo"));
-        let value = HeaderValue::from_str(&v).unwrap_or_else(|_| HeaderValue::from_static("Bar"));
-        headers.insert(name, value);
-    }
+    pairs.iter().for_each(|line| {
+        let parts = line.splitn(2, ":").collect::<Vec<&str>>();
+        let key = parts.iter().nth(0);
+        let val = parts.iter().nth(1);
+
+        if key.is_some() {
+            let name = HeaderName::from_bytes(key.unwrap().as_bytes()).unwrap();
+            let val = HeaderValue::from_str(val.unwrap_or(&"").trim()).unwrap();
+
+            headers.insert(name, val);
+        }
+    });
     headers
 }
 
-fn vec_to_query_params(params: &[String]) -> Vec<(&str, &str)> {
+fn vec_to_query_params<'a>(params: Vec<String>) -> Vec<(String, String)> {
     params
         .iter()
         .filter_map(|line| {
             let mut parts = line.splitn(2, ':');
-            let key = parts.next()?.trim();
-            let value = parts.next().unwrap_or("").trim();
+            let key = parts.next()?.trim().to_string();
+            let value = parts.next().unwrap_or("").trim().to_string();
             if key.is_empty() {
                 None
             } else {
@@ -73,8 +79,8 @@ pub trait RestClient {
 
 #[derive(Debug, Default, Clone)]
 pub struct HttpClient {
-    pub request_headers: Vec<(String, String)>,
-    pub query_params: Vec<String>,
+    pub request_headers: HeaderMap,
+    pub query_params: Vec<(String, String)>,
 }
 
 impl HttpClient {
@@ -90,17 +96,26 @@ impl HttpClient {
             _ => "Unknown",
         }
     }
+
+    pub fn with_query_params(mut self, query_params: Vec<String>) -> Self {
+        self.query_params = vec_to_query_params(query_params);
+        self
+    }
+
+    pub fn with_request_headers(mut self, headers: Vec<String>) -> Self {
+        self.request_headers = vec_to_headermap(headers);
+        self
+    }
 }
 
 impl RestClient for HttpClient {
     fn get(&self, url: &str) -> Result<HttpResponse, reqwest::Error> {
-        let request_headers = &self.request_headers.to_vec();
         let start = Instant::now();
         let client = reqwest::blocking::Client::new();
         let response = client
             .get(url)
-            .query(&vec_to_query_params(&self.query_params))
-            .headers(vec_to_headermap(request_headers.to_vec()))
+            .query(&self.query_params)
+            .headers(self.request_headers.clone())
             .send()?;
 
         let elapsed = start.elapsed().as_millis();
@@ -126,12 +141,11 @@ impl RestClient for HttpClient {
         path: &str,
         body: Option<serde_json::Value>,
     ) -> Result<HttpResponse, reqwest::Error> {
-        let request_headers = &self.request_headers.to_vec();
         let start = Instant::now();
         let client = reqwest::blocking::Client::new();
         let response = client
             .post(path)
-            .headers(vec_to_headermap(request_headers.to_vec()))
+            .headers(self.request_headers.clone())
             .json(&body)
             .send()?;
         let elapsed = start.elapsed().as_millis();
@@ -157,13 +171,12 @@ impl RestClient for HttpClient {
         path: &str,
         body: Option<serde_json::Value>,
     ) -> Result<HttpResponse, reqwest::Error> {
-        let request_headers = &self.request_headers.to_vec();
         let start = Instant::now();
         let client = reqwest::blocking::Client::new();
         let response = client
             .get(path)
             .query(&self.query_params)
-            .headers(vec_to_headermap(request_headers.to_vec()))
+            .headers(self.request_headers.clone())
             .json(&body)
             .send()?;
         let elapsed = start.elapsed().as_millis();
@@ -189,13 +202,12 @@ impl RestClient for HttpClient {
         path: &str,
         body: Option<serde_json::Value>,
     ) -> Result<HttpResponse, reqwest::Error> {
-        let request_headers = &self.request_headers.to_vec();
         let start = Instant::now();
         let client = reqwest::blocking::Client::new();
         let response = client
             .get(path)
             .query(&self.query_params)
-            .headers(vec_to_headermap(request_headers.to_vec()))
+            .headers(self.request_headers.clone())
             .json(&body)
             .send()?;
         let elapsed = start.elapsed().as_millis();
@@ -217,13 +229,12 @@ impl RestClient for HttpClient {
     }
 
     fn delete(&self, path: &str) -> Result<HttpResponse, reqwest::Error> {
-        let request_headers = &self.request_headers.to_vec();
         let start = Instant::now();
         let client = reqwest::blocking::Client::new();
         let response = client
             .delete(path)
             .query(&self.query_params)
-            .headers(vec_to_headermap(request_headers.to_vec()))
+            .headers(self.request_headers.clone())
             .send()?;
 
         let elapsed = start.elapsed().as_millis();
@@ -241,5 +252,21 @@ impl RestClient for HttpClient {
         };
 
         Ok(res)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_vec_to_header_map() {
+        let pairs = vec![
+            "Accept: application/json".to_string(),
+            "Accept-Language: en-US,en;q=0.5.to".to_string(),
+        ];
+        let header_map = vec_to_headermap(pairs);
+
+        assert_eq!(header_map.get("Accept").unwrap(), "application/json");
     }
 }
