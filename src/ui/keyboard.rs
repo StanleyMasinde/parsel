@@ -52,7 +52,9 @@ pub(crate) fn handle_key(app: &mut App, key: KeyEvent) {
                 HttpMethod::HEAD => app.request.method = HttpMethod::OPTIONS,
                 HttpMethod::OPTIONS => app.request.method = HttpMethod::GET,
             },
-            _ => {}
+            _ => {
+                panic!("All keys need to be handled!")
+            }
         },
         Mode::Edit => match app.active_panel {
             Panel::Url => match key.code {
@@ -69,7 +71,9 @@ pub(crate) fn handle_key(app: &mut App, key: KeyEvent) {
                     app.query_params_input.input(key);
                 }
             },
-            _ => {}
+            _ => {
+                panic!("All keys need to be handled!")
+            }
         },
     }
 }
