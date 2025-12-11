@@ -1,5 +1,4 @@
-pub mod http;
-pub mod ui;
+use parsel::ui;
 
 fn main() {
     ui::run().unwrap();
