@@ -20,7 +20,7 @@ fn vec_to_headermap(pairs: Vec<String>) -> HeaderMap {
         let key = parts.iter().nth(0);
         let val = parts.iter().nth(1);
 
-        if key.is_some() {
+        if key.is_some() && !key.unwrap().is_empty() {
             let name = HeaderName::from_bytes(key.unwrap().as_bytes()).unwrap();
             let val = HeaderValue::from_str(val.unwrap_or(&"").trim()).unwrap();
 
