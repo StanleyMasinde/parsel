@@ -30,7 +30,7 @@ fn vec_to_headermap(pairs: Vec<String>) -> HeaderMap {
     headers
 }
 
-fn vec_to_query_params<'a>(params: Vec<String>) -> Vec<(String, String)> {
+fn vec_to_query_params(params: Vec<String>) -> Vec<(String, String)> {
     params
         .iter()
         .filter_map(|line| {
