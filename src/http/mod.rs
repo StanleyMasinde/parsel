@@ -269,4 +269,17 @@ mod tests {
 
         assert_eq!(header_map.get("Accept").unwrap(), "application/json");
     }
+
+    #[test]
+    fn test_vec_to_query_params() {
+        let params = vec![
+            "filter: laptops".to_string(),
+            "order_by: price".to_string(),
+            "page: 2".to_string(),
+        ];
+        let query_params = vec_to_query_params(params);
+
+        assert_eq!(query_params.iter().nth(0).unwrap().0, "filter");
+        assert_eq!(query_params.iter().nth(0).unwrap().1, "laptops");
+    }
 }
