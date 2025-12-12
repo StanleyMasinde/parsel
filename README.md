@@ -20,25 +20,26 @@ Download the appropriate binary from releases:
 **Linux (x64)**
 
 ```bash
-wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x64.tar.gz && tar -xzf parsel-linux-x64.tar.gz && rm parsel-linux-x64.tar.gz && sudo install -sm 755 parsel /usr/local/bin/
+wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x86_64.tar.gz && tar -xzf parsel-linux-x86_64.tar.gz && rm parsel-linux-x86_64.tar.gz && sudo install -sm 755 parsel /usr/local/bin/
 ```
 
-**Linux (x64 Static)**
+
+**Linux (ARM)**
 
 ```bash
-wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x64-static.tar.gz && tar -xzf parsel-linux-x64-static.tar.gz && rm parsel-linux-x64-static.tar.gz && sudo install -sm 755 parsel /usr/local/bin/
+wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-arm.tar.gz && tar -xzf parsel-linux-arm.tar.gz && rm parsel-linux-arm.tar.gz && sudo install -sm 755 parsel /usr/local/bin/
 ```
 
 **macOS (Intel)**
 
 ```bash
-curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-x64.tar.gz | tar -xz && sudo install -sm 755 parsel /usr/local/bin/
+curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-x86_64.tar.gz | tar -xz && sudo install -sm 755 parsel /usr/local/bin/
 ```
 
 **macOS (Apple Silicon)**
 
 ```bash
-curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-arm64.tar.gz | tar -xz && sudo install -sm 755 parsel /usr/local/bin/
+curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-aarch64.tar.gz | tar -xz && sudo install -sm 755 parsel /usr/local/bin/
 ```
 
 ## Usage
