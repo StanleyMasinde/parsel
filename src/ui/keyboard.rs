@@ -1,86 +1,59 @@
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
-use crate::ui::{
-    App,
-    types::{HttpMethod, Mode, Panel},
-};
+use crate::types::app::Mode;
+use crate::types::input_handler::InputHandler;
 
-pub(crate) fn handle_key(app: &mut App, key: KeyEvent) {
-    app.error = None;
+impl<'handler> InputHandler<'handler> {
+    pub fn handle(&mut self, key: KeyEvent) {
+        match self.app.app_state.mode {
+            Mode::Normal => {
+                self.state.key_code = key.code;
+                self.normal_mode();
+            }
+            Mode::Edit => {
+                self.state.key_code = key.code;
+                self.edit_mode()
+            }
+        }
+    }
 
-    match app.mode {
-        Mode::Normal => match key.code {
-            KeyCode::Enter => app.send_request(),
-            KeyCode::Tab => match app.active_panel {
-                Panel::Url => app.active_panel = Panel::QueryParams,
-                Panel::QueryParams => app.active_panel = Panel::Headers,
-                Panel::Headers => app.active_panel = Panel::Body,
-                Panel::Body => app.active_panel = Panel::Response,
-                Panel::Response => app.active_panel = Panel::Url,
-            },
-            KeyCode::BackTab => match app.active_panel {
-                Panel::Url => app.active_panel = Panel::Response,
-                Panel::QueryParams => app.active_panel = Panel::Url,
-                Panel::Headers => app.active_panel = Panel::QueryParams,
-                Panel::Body => app.active_panel = Panel::Headers,
-                Panel::Response => app.active_panel = Panel::Body,
-            },
-            KeyCode::Char('j') => match app.active_panel {
-                Panel::Url => app.active_panel = Panel::QueryParams,
-                Panel::QueryParams => app.active_panel = Panel::Headers,
-                Panel::Headers => app.active_panel = Panel::Body,
-                Panel::Body => app.active_panel = Panel::Response,
-                Panel::Response => {
-                    app.response_scroll += 10;
-                    app.active_panel = Panel::Response
-                }
-            },
-            KeyCode::Char('k') if app.active_panel == Panel::Response => {
-                if app.response_scroll > 0 {
-                    app.response_scroll -= 10;
-                }
+    fn normal_mode(&self) {
+        match self.state.key_code {
+            KeyCode::Backspace => todo!(),
+            KeyCode::Enter => todo!(),
+            KeyCode::Left => todo!(),
+            KeyCode::Right => todo!(),
+            KeyCode::Up => todo!(),
+            KeyCode::Down => todo!(),
+            KeyCode::Home => todo!(),
+            KeyCode::End => todo!(),
+            KeyCode::PageUp => todo!(),
+            KeyCode::PageDown => todo!(),
+            KeyCode::Tab => todo!(),
+            KeyCode::BackTab => todo!(),
+            KeyCode::Delete => todo!(),
+            KeyCode::Insert => todo!(),
+            KeyCode::F(_) => todo!(),
+            KeyCode::Char(_) => todo!(),
+            KeyCode::Null => todo!(),
+            KeyCode::Esc => todo!(),
+            KeyCode::CapsLock => todo!(),
+            KeyCode::ScrollLock => todo!(),
+            KeyCode::NumLock => todo!(),
+            KeyCode::PrintScreen => todo!(),
+            KeyCode::Pause => todo!(),
+            KeyCode::Menu => todo!(),
+            KeyCode::KeypadBegin => todo!(),
+            KeyCode::Media(_media_key_code) => {
+                todo!()
             }
-            KeyCode::Char('k') => {}
-            KeyCode::Char('i') => app.mode = Mode::Edit,
-            KeyCode::Char('q') => app.should_quit = true,
-            KeyCode::Char('m') => match app.request.method {
-                HttpMethod::GET => app.request.method = HttpMethod::POST,
-                HttpMethod::POST => app.request.method = HttpMethod::PUT,
-                HttpMethod::PUT => app.request.method = HttpMethod::DELETE,
-                HttpMethod::DELETE => app.request.method = HttpMethod::PATCH,
-                HttpMethod::PATCH => app.request.method = HttpMethod::HEAD,
-                HttpMethod::HEAD => app.request.method = HttpMethod::OPTIONS,
-                HttpMethod::OPTIONS => app.request.method = HttpMethod::GET,
-            },
-            _ => {
-                panic!("All keys need to be handled!")
+            KeyCode::Modifier(_modifier_key_code) => {
+                todo!()
             }
-        },
-        Mode::Edit => match app.active_panel {
-            Panel::Url => match key.code {
-                KeyCode::Esc => app.mode = Mode::Normal,
-                KeyCode::Enter => app.send_request(),
-                _ => {
-                    app.url_input.input(key);
-                }
-            },
-            Panel::QueryParams => match key.code {
-                KeyCode::Esc => app.mode = Mode::Normal,
-                KeyCode::Tab => app.query_params_input.insert_char(':'),
-                _ => {
-                    app.query_params_input.input(key);
-                }
-            },
-            Panel::Headers => match key.code {
-                KeyCode::Esc => app.mode = Mode::Normal,
-                KeyCode::Tab => app.headers_input.insert_char(':'),
-                _ => {
-                    app.headers_input.input(key);
-                }
-            },
-            _ => {
-                panic!("All keys need to be handled!")
-            }
-        },
+        }
+    }
+
+    fn edit_mode(&self) {
+        todo!()
     }
 }
