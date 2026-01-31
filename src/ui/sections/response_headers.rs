@@ -9,7 +9,11 @@ pub struct ResponseHeaders;
 
 impl ResponseHeaders {
     pub fn render(&self, frame: &mut Frame, area: Rect, active: bool) {
-        let title = if active { "● Response Headers" } else { "○ Response Headers" };
+        let title = if active {
+            "● Response Headers"
+        } else {
+            "○ Response Headers"
+        };
         let border_style = if active {
             Style::default().fg(Color::Cyan)
         } else {

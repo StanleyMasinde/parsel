@@ -9,7 +9,11 @@ pub struct RequestBody;
 
 impl RequestBody {
     pub fn render(&self, frame: &mut Frame, area: Rect, active: bool) {
-        let title = if active { "● Request Body" } else { "○ Request Body" };
+        let title = if active {
+            "● Request Body"
+        } else {
+            "○ Request Body"
+        };
         let border_style = if active {
             Style::default().fg(Color::Cyan)
         } else {

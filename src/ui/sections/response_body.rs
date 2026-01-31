@@ -9,7 +9,11 @@ pub struct ResponseBody;
 
 impl ResponseBody {
     pub fn render(&self, frame: &mut Frame, area: Rect, active: bool) {
-        let title = if active { "● Response" } else { "○ Response" };
+        let title = if active {
+            "● Response"
+        } else {
+            "○ Response"
+        };
         let border_style = if active {
             Style::default().fg(Color::Cyan)
         } else {

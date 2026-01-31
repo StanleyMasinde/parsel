@@ -10,7 +10,11 @@ pub struct QueryParams;
 
 impl QueryParams {
     pub fn render(&self, frame: &mut Frame, area: Rect, active: bool) {
-        let title = if active { "● Query Params" } else { "○ Query Params" };
+        let title = if active {
+            "● Query Params"
+        } else {
+            "○ Query Params"
+        };
         let border_style = if active {
             Style::default().fg(Color::Cyan)
         } else {

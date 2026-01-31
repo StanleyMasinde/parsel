@@ -17,7 +17,6 @@ pub enum Mode {
 pub enum ActivePanel {
     #[default]
     Url,
-    Method,
     ReqQuery,
     ReqHeaders,
     ReqBody,
@@ -28,20 +27,18 @@ pub enum ActivePanel {
 impl ActivePanel {
     pub fn next(self) -> Self {
         match self {
-            Self::Method => Self::Url,
             Self::Url => Self::ReqQuery,
             Self::ReqQuery => Self::ReqHeaders,
             Self::ReqHeaders => Self::ReqBody,
             Self::ReqBody => Self::ResHeaders,
             Self::ResHeaders => Self::ResBody,
-            Self::ResBody => Self::Method,
+            Self::ResBody => Self::Url,
         }
     }
 
     pub fn prev(self) -> Self {
         match self {
-            Self::Method => Self::ResBody,
-            Self::Url => Self::Method,
+            Self::Url => Self::ReqQuery,
             Self::ReqQuery => Self::Url,
             Self::ReqHeaders => Self::ReqQuery,
             Self::ReqBody => Self::ReqHeaders,
@@ -70,7 +67,7 @@ impl App {
     }
 }
 
-impl<'app> Widget for &App {
+impl Widget for &App {
     fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
     where
         Self: Sized,

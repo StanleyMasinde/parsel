@@ -9,7 +9,11 @@ pub struct RequestHeaders;
 
 impl RequestHeaders {
     pub fn render(&self, frame: &mut Frame, area: Rect, active: bool) {
-        let title = if active { "● Request Headers" } else { "○ Request Headers" };
+        let title = if active {
+            "● Request Headers"
+        } else {
+            "○ Request Headers"
+        };
         let border_style = if active {
             Style::default().fg(Color::Cyan)
         } else {
