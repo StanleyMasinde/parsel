@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+curl-rest = "0.3.0"
 ratatui = "0.30.0"
-tui-textarea = "0.7.0"
+tui-input = "0.15.0"
