@@ -9,7 +9,7 @@ use crate::ui::sections::{
     request_headers::RequestHeaders, response_body::ResponseBody,
     response_headers::ResponseHeaders, status_bar::StatusBar, url_bar::UrlBar,
 };
-use crate::{types::app::App, ui::layout::MainLayout};
+use crate::{types::app::{ActivePanel, App}, ui::layout::MainLayout};
 
 impl App {
     pub fn run(&mut self, terminal: &mut DefaultTerminal) {
@@ -35,23 +35,43 @@ impl App {
         let l = MainLayout::split(frame.area());
 
         // Method box
-        Method.render(frame, l.method);
+        Method.render(frame, l.method, self.app_state.active_panel == ActivePanel::Method);
 
         // URL bar
         let url_bar = UrlBar(self);
         url_bar.render(frame, l.url);
 
         // Request sections (left)
-        QueryParams.render(frame, l.req_query);
+        QueryParams.render(
+            frame,
+            l.req_query,
+            self.app_state.active_panel == ActivePanel::ReqQuery,
+        );
 
-        RequestHeaders.render(frame, l.req_headers);
+        RequestHeaders.render(
+            frame,
+            l.req_headers,
+            self.app_state.active_panel == ActivePanel::ReqHeaders,
+        );
 
-        RequestBody.render(frame, l.req_body);
+        RequestBody.render(
+            frame,
+            l.req_body,
+            self.app_state.active_panel == ActivePanel::ReqBody,
+        );
 
         // Response sections (right)
-        ResponseBody.render(frame, l.res_body);
+        ResponseBody.render(
+            frame,
+            l.res_body,
+            self.app_state.active_panel == ActivePanel::ResBody,
+        );
 
-        ResponseHeaders.render(frame, l.res_headers);
+        ResponseHeaders.render(
+            frame,
+            l.res_headers,
+            self.app_state.active_panel == ActivePanel::ResHeaders,
+        );
 
         // Status bar (bottom)
         StatusBar.render(frame, l.status);

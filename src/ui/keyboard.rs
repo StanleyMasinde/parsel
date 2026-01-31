@@ -19,13 +19,6 @@ impl<'a> InputHandler<'a> {
     }
 
     fn normal_mode(&mut self) {
-        if self.app.app_state.active_panel != ActivePanel::Url {
-            todo!(
-                "unhandled normal input for non-url panel: {:?}",
-                self.app.app_state.active_panel
-            );
-        }
-
         match self.state.key_code {
             KeyCode::Backspace => todo!(),
             KeyCode::Enter => todo!(),
@@ -47,7 +40,14 @@ impl<'a> InputHandler<'a> {
             KeyCode::Insert => todo!(),
             KeyCode::F(_) => todo!(),
             KeyCode::Char('i') => {
-                self.app.app_state.mode = Mode::Edit;
+                if self.app.app_state.active_panel == ActivePanel::Url {
+                    self.app.app_state.mode = Mode::Edit;
+                } else {
+                    todo!(
+                        "unhandled normal input for non-url panel: {:?}",
+                        self.app.app_state.active_panel
+                    );
+                }
             }
             KeyCode::Char(_) => todo!(),
             KeyCode::Null => todo!(),
