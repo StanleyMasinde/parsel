@@ -14,13 +14,13 @@ impl Default for InputState {
     }
 }
 
-pub struct InputHandler<'a> {
-    pub app: &'a mut App,
+pub struct InputHandler<'b, 'a> {
+    pub app: &'b mut App<'a>,
     pub state: InputState,
 }
 
-impl<'a> InputHandler<'a> {
-    pub fn new(app: &'a mut App, state: InputState) -> Self {
+impl<'b, 'a> InputHandler<'b, 'a> {
+    pub fn new(app: &'b mut App<'a>, state: InputState) -> Self {
         Self { app, state }
     }
 }

@@ -220,8 +220,7 @@ dependencies = [
 [[package]]
 name = "curl-rest"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a34c2799b96a5b5566277f8a273f1f339119cf62bab016bf69f8f3226415b14"
+source = "git+https://github.com/StanleyMasinde/curl-rest#ab136713badc8a3df5a7d20d28641f023e07bcb5"
 dependencies = [
  "curl",
  "percent-encoding",
@@ -897,6 +896,7 @@ version = "0.1.0"
 dependencies = [
  "curl-rest",
  "ratatui",
+ "serde_json",
  "tui-input",
 ]
 
@@ -1273,6 +1273,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.114",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.149"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
+dependencies = [
+ "itoa",
+ "memchr",
+ "serde",
+ "serde_core",
+ "zmij",
 ]
 
 [[package]]
@@ -2063,3 +2076,9 @@ dependencies = [
  "quote",
  "syn 2.0.114",
 ]
+
+[[package]]
+name = "zmij"
+version = "1.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1966f8ac2c1f76987d69a74d0e0f929241c10e78136434e3be70ff7f58f64214"

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-curl-rest = "0.3.0"
+curl-rest = { git = "https://github.com/StanleyMasinde/curl-rest" }
 ratatui = "0.30.0"
+serde_json = "1.0.149"
 tui-input = "0.15.0"

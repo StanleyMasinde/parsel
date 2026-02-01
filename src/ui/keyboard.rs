@@ -4,8 +4,13 @@ use tui_input::backend::crossterm::EventHandler;
 use crate::types::app::{ActivePanel, Mode};
 use crate::types::input_handler::InputHandler;
 
-impl<'a> InputHandler<'a> {
+impl<'b, 'a> InputHandler<'b, 'a> {
     pub fn handle(&mut self, key: KeyEvent) {
+        if self.app.app_state.error.is_some() {
+            self.app.app_state.error = None;
+            return;
+        }
+
         match self.app.app_state.mode {
             Mode::Normal => {
                 self.state.key_code = key.code;
@@ -89,7 +94,7 @@ impl<'a> InputHandler<'a> {
             KeyCode::Esc => {
                 self.app.app_state.mode = Mode::Normal;
             }
-            KeyCode::Enter => todo!(),
+            KeyCode::Enter => self.app.send_request(),
             KeyCode::Up => todo!(),
             KeyCode::Down => todo!(),
             KeyCode::PageUp => todo!(),

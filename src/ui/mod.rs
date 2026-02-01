@@ -2,7 +2,15 @@ pub mod keyboard;
 pub mod layout;
 pub mod sections;
 
-use ratatui::{DefaultTerminal, Frame, crossterm::event};
+use std::time::Duration;
+
+use ratatui::{
+    DefaultTerminal, Frame,
+    crossterm::event,
+    layout::Rect,
+    style::{Color, Style},
+    widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
+};
 
 use crate::ui::sections::{
     method::Method, query_params::QueryParams, request_body::RequestBody,
@@ -14,20 +22,25 @@ use crate::{
     ui::layout::MainLayout,
 };
 
-impl App {
+impl<'a> App<'a> {
     pub fn run(&mut self, terminal: &mut DefaultTerminal) {
         loop {
             terminal.draw(|frame| self.draw(frame)).unwrap();
 
-            let event = event::read().unwrap();
-            match event {
-                event::Event::FocusGained => todo!(),
-                event::Event::FocusLost => todo!(),
-                event::Event::Key(key_event) => self.handle_key_events(key_event),
-                event::Event::Mouse(_mouse_event) => todo!(),
-                event::Event::Paste(_) => todo!(),
-                event::Event::Resize(_, _) => todo!(),
+            if event::poll(Duration::from_millis(50)).unwrap() {
+                let event = event::read().unwrap();
+                match event {
+                    event::Event::FocusGained => todo!(),
+                    event::Event::FocusLost => todo!(),
+                    event::Event::Key(key_event) => self.handle_key_events(key_event),
+                    event::Event::Mouse(_mouse_event) => todo!(),
+                    event::Event::Paste(_) => todo!(),
+                    event::Event::Resize(_, _) => todo!(),
+                }
             }
+
+            self.poll_network();
+
             if self.app_state.should_exit {
                 break;
             }
@@ -57,18 +70,68 @@ impl App {
         RequestBody.render(frame, l.req_body, active_panel == ActivePanel::ReqBody);
 
         // Response sections (right)
-        ResponseBody.render(frame, l.res_body, active_panel == ActivePanel::ResBody);
+        ResponseBody.render(
+            frame,
+            l.res_body,
+            active_panel == ActivePanel::ResBody,
+            self.app_state.response_body.as_deref(),
+        );
 
         ResponseHeaders.render(
             frame,
             l.res_headers,
             active_panel == ActivePanel::ResHeaders,
+            self.app_state.response_status.as_deref(),
+            self.app_state.response_headers.as_deref(),
         );
 
         // Status bar (bottom)
         StatusBar.render(frame, l.status);
+
+        if self.app_state.is_loading {
+            let loading_area = centered_area(frame.area(), 42, 7);
+            frame.render_widget(Clear, loading_area);
+            let loading_indicator = Paragraph::new("Please wait for the request to complete.")
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .title("Making request"),
+                )
+                .wrap(Wrap { trim: false });
+            frame.render_widget(loading_indicator, loading_area);
+        }
+
+        if let Some(error_msg) = &self.app_state.error {
+            let error_area = centered_area(frame.area(), 40, 5);
+            frame.render_widget(Clear, error_area);
+            let error_box = Paragraph::new(error_msg.as_str())
+                .wrap(Wrap { trim: false })
+                .style(Style::default().fg(Color::Red))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .title("Error"),
+                );
+            frame.render_widget(error_box, error_area);
+        }
     }
 }
+
 pub fn run() {
     ratatui::run(|terminal| App::default().run(terminal))
+}
+
+fn centered_area(area: Rect, width: u16, height: u16) -> Rect {
+    let width = width.min(area.width.saturating_sub(2));
+    let height = height.min(area.height.saturating_sub(2));
+    let x = area.x + (area.width.saturating_sub(width)) / 2;
+    let y = area.y + (area.height.saturating_sub(height)) / 2;
+    Rect {
+        x,
+        y,
+        width,
+        height,
+    }
 }

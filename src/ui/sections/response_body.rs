@@ -8,7 +8,7 @@ use ratatui::{
 pub struct ResponseBody;
 
 impl ResponseBody {
-    pub fn render(&self, frame: &mut Frame, area: Rect, active: bool) {
+    pub fn render(&self, frame: &mut Frame, area: Rect, active: bool, body: Option<&str>) {
         let title = if active {
             "● Response"
         } else {
@@ -20,8 +20,9 @@ impl ResponseBody {
             Style::default()
         };
 
+        let content = body.unwrap_or("No response yet\n\nPress Enter to send request");
         frame.render_widget(
-            Paragraph::new("No response yet\n\nPress Enter to send request")
+            Paragraph::new(content)
                 .block(
                     Block::default()
                         .borders(Borders::ALL)

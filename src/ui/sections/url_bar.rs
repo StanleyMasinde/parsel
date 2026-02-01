@@ -6,7 +6,7 @@ use ratatui::{
 
 use crate::types::app::{ActivePanel, App, Mode};
 
-pub struct UrlBar<'a>(pub &'a App);
+pub struct UrlBar<'a>(pub &'a App<'a>);
 
 impl<'a> UrlBar<'a> {
     pub fn render(&self, frame: &mut Frame, area: Rect) {
