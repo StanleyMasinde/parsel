@@ -2,7 +2,7 @@
 
 set -e
 
-REPO="StanleyMasinde/parsel_v2"
+REPO="StanleyMasinde/parsel"
 VERSION="${1:-latest}"
 INSTALL_DIR="${PARSEL_INSTALL:-/usr/local/bin}"
 BINARY_NAME="parsel"
