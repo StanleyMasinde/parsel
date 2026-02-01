@@ -1,74 +1,84 @@
-# Parsel
+# parsel
 
-Test APIs from the terminal.
+parsel is a terminal UI HTTP client for crafting requests and inspecting responses.
 
-## Motivation
+## Install
 
-A lot of my work is in the terminal and sometimes Curl is too complex. I built this to allow me to switch into another tmux window for API work.
-
-## MVP Features
-
-* Sends requests
-* Displays all responses as plain text
-* Supports custom headers and body input
-* _Modal interface (like Vim)_
-
-## Installation
-
-Download the appropriate binary from releases:
-
-**Linux (x64)**
-
-```bash
-wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-x86_64.tar.gz && tar -xzf parsel-linux-x86_64.tar.gz && rm parsel-linux-x86_64.tar.gz && sudo install -sm 755 parsel /usr/local/bin/
+```sh
+curl -fsSL https://raw.githubusercontent.com/StanleyMasinde/parsel/main/install.sh | sh
 ```
 
+Optional: install a specific version
 
-**Linux (ARM)**
-
-```bash
-wget https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-linux-arm.tar.gz && tar -xzf parsel-linux-arm.tar.gz && rm parsel-linux-arm.tar.gz && sudo install -sm 755 parsel /usr/local/bin/
+```sh
+curl -fsSL https://raw.githubusercontent.com/StanleyMasinde/parsel/main/install.sh | sh -s v1.2.3
 ```
 
-**macOS (Intel)**
+Install to a custom directory
 
-```bash
-curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-x86_64.tar.gz | tar -xz && sudo install -sm 755 parsel /usr/local/bin/
-```
-
-**macOS (Apple Silicon)**
-
-```bash
-curl -L https://github.com/StanleyMasinde/parsel/releases/latest/download/parsel-darwin-aarch64.tar.gz | tar -xz && sudo install -sm 755 parsel /usr/local/bin/
+```sh
+curl -fsSL https://raw.githubusercontent.com/StanleyMasinde/parsel/main/install.sh | PARSEL_INSTALL=~/.local/bin sh
 ```
 
 ## Usage
 
-```bash
+Run:
+
+```sh
 parsel
 ```
 
-Parsel uses **modal editing**:
+Workflow:
+- Enter a URL and configure the request on the left panels.
+- Press Enter to send the request and view the response on the right panels.
 
-* Use `Tab` to switch between sections.
-* In the **Request tab** (default):
+## Keybindings
 
-  * `m` cycles HTTP method forward, `M` cycles back.
-  * `Enter` sends the request.
-* In **Query Params** or **Headers** tab:
+Global (Normal mode):
+- `Tab` / `Shift+Tab`: next/previous panel
+- `Enter`: send request
+- `q`: quit
 
-  * `i` enters edit mode
-  * `a` adds a new item
-  * Type the key → `Tab` → type the value → `Return` to save
-  * `D` deletes the selected item in normal mode
-* In the **URL** or **Request Body** tab:
+Editing:
+- `i`: enter Edit mode on URL, Query, Headers, or Body panels
+- `Esc`: back to Normal mode
+- `Enter`: send request when editing URL
+- `Ctrl+Enter`: send request from any edit panel
 
-  * `i` to enter edit mode, type your input, `Esc` to go back to normal mode
+Request helpers:
+- `m` / `M`: next/previous HTTP method
+- `b` / `B`: next/previous body mode
 
-## Contributing
+Response:
+- `j` / `k`: scroll response body down/up
 
-Not accepting contributions until there is a stable codebase. For now, please submit issues only.
+## Request input format
+
+Query params, headers, and body inputs are entered as `key: value` pairs, one per line.
+
+Examples:
+
+```text
+token: 123
+page: 2
+```
+
+Body modes:
+- JSON: values are encoded into a flat JSON object
+- Form: values are encoded as `application/x-www-form-urlencoded`
+
+## Build from source
+
+```sh
+cargo build --release
+```
+
+Binary will be at:
+
+```sh
+target/release/parsel
+```
 
 ## License
 
-MIT
+MIT License. See `LICENSE`.

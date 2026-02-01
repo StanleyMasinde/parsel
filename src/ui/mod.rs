@@ -1,190 +1,183 @@
-mod keyboard;
-mod renderer;
-mod types;
+pub mod keyboard;
+pub mod layout;
+pub mod sections;
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
-use ratatui::crossterm::{
-    self,
-    event::{self, Event, KeyEventKind},
+use ratatui::{
+    DefaultTerminal, Frame,
+    crossterm::event,
+    layout::Rect,
+    style::{Color, Style},
+    widgets::{Block, BorderType, Borders, Clear, Paragraph, Wrap},
 };
-use tui_textarea::TextArea;
 
+use crate::ui::sections::{
+    method::Method, query_params::QueryParams, request_body::RequestBody,
+    request_headers::RequestHeaders, response_body::ResponseBody,
+    response_headers::ResponseHeaders, status_bar::StatusBar, url_bar::UrlBar,
+};
 use crate::{
-    http::{self, RestClient},
-    ui::{
-        keyboard::handle_key,
-        renderer::render,
-        types::{HttpMethod, Mode, Panel, Request, Response},
-    },
+    types::app::{ActivePanel, App, Mode},
+    ui::layout::MainLayout,
 };
-
-#[derive(Debug)]
-struct App<'a> {
-    request: Request,
-    response: Option<Response>,
-    history: Vec<Request>,
-    active_panel: Panel,
-    should_quit: bool,
-    is_loading: bool,
-    error: Option<String>,
-    mode: Mode,
-    tx: std::sync::mpsc::Sender<Response>,
-    rx: std::sync::mpsc::Receiver<Response>,
-    err_tx: std::sync::mpsc::Sender<String>,
-    err_rx: std::sync::mpsc::Receiver<String>,
-    his_tx: std::sync::mpsc::Sender<Request>,
-    his_rx: std::sync::mpsc::Receiver<Request>,
-    http_client: http::HttpClient,
-    url_input: TextArea<'a>,
-    response_scroll: u16,
-    query_params_input: TextArea<'a>,
-    edit_modal: bool,
-    headers_input: TextArea<'a>,
-}
-
-impl Default for Request {
-    fn default() -> Self {
-        Self {
-            method: HttpMethod::GET,
-            body: "".into(),
-        }
-    }
-}
 
 impl<'a> App<'a> {
-    fn new() -> Self {
-        let (tx, rx) = std::sync::mpsc::channel();
-        let (err_tx, err_rx) = std::sync::mpsc::channel::<String>();
-        let (his_tx, his_rx) = std::sync::mpsc::channel::<Request>();
-        let http_client = http::HttpClient::default();
-        let url_input = TextArea::from("https://httpbin.io/anything".lines());
-        let query_params_input = TextArea::default();
-        let headers_input = TextArea::default();
+    pub fn run(&mut self, terminal: &mut DefaultTerminal) {
+        loop {
+            terminal.draw(|frame| self.draw(frame)).unwrap();
 
-        Self {
-            request: Request::default(),
-            response: None,
-            history: vec![],
-            active_panel: Panel::Url,
-            should_quit: false,
-            is_loading: false,
-            error: None,
-            mode: Mode::Normal,
-            tx,
-            rx,
-            err_rx,
-            err_tx,
-            his_tx,
-            his_rx,
-            http_client,
-            url_input,
-            query_params_input,
-            response_scroll: 0,
-            edit_modal: false,
-            headers_input,
-        }
-    }
-
-    fn send_request(&mut self) {
-        self.is_loading = true;
-
-        let request = self.request.clone();
-        let method = self.request.method.clone();
-        let url = self.url_input.lines().join("\n");
-        let body = self.request.body.to_string();
-        let tx = self.tx.clone();
-        let his_tx = self.his_tx.clone();
-        let error_tx = self.err_tx.clone();
-
-        let query_params = Arc::new(self.query_params_input.lines());
-        let headers = self.headers_input.lines();
-
-        let http_client = Arc::new(
-            self.http_client
-                .clone()
-                .with_query_params(query_params.to_vec())
-                .with_request_headers(headers.to_vec()),
-        );
-
-        std::thread::spawn(move || {
-            let json_body = serde_json::from_str(&body.replace("\n", "")).unwrap_or(None);
-            let res = match method {
-                HttpMethod::GET => http_client.get(&url),
-                HttpMethod::POST => http_client.post(&url, json_body),
-                HttpMethod::PUT => http_client.put(&url, json_body),
-                HttpMethod::DELETE => http_client.delete(&url),
-                HttpMethod::PATCH => http_client.patch(&url, json_body),
-                HttpMethod::HEAD => http_client.get(&url),
-                HttpMethod::OPTIONS => http_client.get(&url),
-            };
-
-            match res {
-                Ok(res) => {
-                    let resp = Response {
-                        status_code: res.status.into(),
-                        status_text: res.status_text,
-                        headers: res.headers,
-                        body: res.body,
-                        duration_ms: res.elapsed,
-                    };
-                    tx.send(resp).unwrap();
-                    his_tx.send(request).unwrap();
-                }
-                Err(err) => {
-                    let mut message = "Could not make the request due to an unknown reason";
-                    if err.is_builder() {
-                        message = "Failed to make the request please check the URL";
-                    } else if err.is_connect() {
-                        message = "Failed to connect to the internet, please check your connection";
-                    }
-                    let _ = error_tx.send(message.to_string());
+            if event::poll(Duration::from_millis(50)).unwrap() {
+                let event = event::read().unwrap();
+                match event {
+                    event::Event::FocusGained => todo!(),
+                    event::Event::FocusLost => todo!(),
+                    event::Event::Key(key_event) => self.handle_key_events(key_event),
+                    event::Event::Mouse(_mouse_event) => todo!(),
+                    event::Event::Paste(_) => todo!(),
+                    event::Event::Resize(_, _) => todo!(),
                 }
             }
-        });
+
+            self.poll_network();
+
+            if self.app_state.should_exit {
+                break;
+            }
+        }
+    }
+
+    fn draw(&mut self, frame: &mut Frame) {
+        let l = MainLayout::split(frame.area());
+        let active_panel = self.app_state.active_panel;
+
+        // Method box
+        Method.render(
+            frame,
+            l.method,
+            active_panel == ActivePanel::Url,
+            self.method_label(),
+        );
+
+        // URL bar
+        let url_bar = UrlBar(self);
+        url_bar.render(frame, l.url);
+
+        // Request sections (left)
+        QueryParams.render(
+            frame,
+            l.req_query,
+            active_panel == ActivePanel::ReqQuery,
+            self.req_query_input.value(),
+            self.req_query_input.cursor(),
+            self.app_state.mode == Mode::Edit && active_panel == ActivePanel::ReqQuery,
+        );
+
+        RequestHeaders.render(
+            frame,
+            l.req_headers,
+            active_panel == ActivePanel::ReqHeaders,
+            self.req_headers_input.value(),
+            self.req_headers_input.cursor(),
+            self.app_state.mode == Mode::Edit && active_panel == ActivePanel::ReqHeaders,
+        );
+
+        RequestBody.render(
+            frame,
+            l.req_body,
+            active_panel == ActivePanel::ReqBody,
+            self.req_body_input.value(),
+            self.req_body_input.cursor(),
+            self.app_state.mode == Mode::Edit && active_panel == ActivePanel::ReqBody,
+            self.body_content_type(),
+        );
+
+        // Response sections (right)
+        self.app_state.response_viewport_height = l.res_body.height.saturating_sub(2);
+        self.app_state.response_line_count = ResponseBody.line_count(
+            self.app_state.response_body.as_deref(),
+            self.app_state.response_content_type.as_deref(),
+        );
+        let max_scroll = self
+            .app_state
+            .response_line_count
+            .saturating_sub(self.app_state.response_viewport_height as usize);
+        let max_scroll = (max_scroll.min(u16::MAX as usize)) as u16;
+        if self.app_state.response_scroll > max_scroll {
+            self.app_state.response_scroll = max_scroll;
+        }
+
+        ResponseBody.render(
+            frame,
+            l.res_body,
+            active_panel == ActivePanel::ResBody,
+            self.app_state.response_body.as_deref(),
+            self.app_state.response_content_type.as_deref(),
+            self.app_state.response_scroll,
+        );
+
+        ResponseHeaders.render(
+            frame,
+            l.res_headers,
+            active_panel == ActivePanel::ResHeaders,
+            self.app_state.response_status.as_deref(),
+            self.app_state.response_headers.as_deref(),
+        );
+
+        // Status bar (bottom)
+        StatusBar.render(
+            frame,
+            l.status,
+            self.app_state.mode,
+            active_panel,
+            self.app_state.is_loading,
+            self.app_state.error.as_deref(),
+        );
+
+        if self.app_state.is_loading {
+            let loading_area = centered_area(frame.area(), 42, 7);
+            frame.render_widget(Clear, loading_area);
+            let loading_indicator = Paragraph::new("Please wait for the request to complete.")
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .title("Making request"),
+                )
+                .wrap(Wrap { trim: false });
+            frame.render_widget(loading_indicator, loading_area);
+        }
+
+        if let Some(error_msg) = &self.app_state.error {
+            let error_area = centered_area(frame.area(), 40, 5);
+            frame.render_widget(Clear, error_area);
+            let error_box = Paragraph::new(error_msg.as_str())
+                .wrap(Wrap { trim: false })
+                .style(Style::default().fg(Color::Red))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_type(BorderType::Rounded)
+                        .title("Error"),
+                );
+            frame.render_widget(error_box, error_area);
+        }
     }
 }
 
-impl<'a> Default for App<'a> {
-    fn default() -> Self {
-        Self::new()
-    }
+pub fn run() {
+    ratatui::run(|terminal| App::default().run(terminal))
 }
 
-pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let mut terminal = ratatui::init();
-    let mut app = App::new();
-
-    loop {
-        terminal.draw(|frame| render(&mut app, frame))?;
-
-        if crossterm::event::poll(Duration::from_millis(100))?
-            && let Event::Key(key) = event::read()?
-            && key.kind == KeyEventKind::Press
-        {
-            handle_key(&mut app, key);
-        }
-
-        if let Ok(resp) = app.rx.try_recv() {
-            app.response = Some(resp);
-            app.is_loading = false;
-        }
-
-        if let Ok(err) = app.err_rx.try_recv() {
-            app.error = Some(err);
-            app.response = None;
-            app.is_loading = false;
-        }
-
-        if let Ok(req) = app.his_rx.try_recv() {
-            app.history.push(req);
-        }
-
-        if app.should_quit {
-            break;
-        }
+fn centered_area(area: Rect, width: u16, height: u16) -> Rect {
+    let width = width.min(area.width.saturating_sub(2));
+    let height = height.min(area.height.saturating_sub(2));
+    let x = area.x + (area.width.saturating_sub(width)) / 2;
+    let y = area.y + (area.height.saturating_sub(height)) / 2;
+    Rect {
+        x,
+        y,
+        width,
+        height,
     }
-
-    ratatui::restore();
-    Ok(())
 }

@@ -1,86 +1,161 @@
-use ratatui::crossterm::event::{KeyCode, KeyEvent};
+use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use tui_input::{InputRequest, backend::crossterm::EventHandler};
 
-use crate::ui::{
-    App,
-    types::{HttpMethod, Mode, Panel},
-};
+use crate::types::app::{ActivePanel, Mode};
+use crate::types::input_handler::InputHandler;
 
-pub(crate) fn handle_key(app: &mut App, key: KeyEvent) {
-    app.error = None;
+impl<'b, 'a> InputHandler<'b, 'a> {
+    pub fn handle(&mut self, key: KeyEvent) {
+        if self.app.app_state.error.is_some() {
+            self.app.app_state.error = None;
+            return;
+        }
 
-    match app.mode {
-        Mode::Normal => match key.code {
-            KeyCode::Enter => app.send_request(),
-            KeyCode::Tab => match app.active_panel {
-                Panel::Url => app.active_panel = Panel::QueryParams,
-                Panel::QueryParams => app.active_panel = Panel::Headers,
-                Panel::Headers => app.active_panel = Panel::Body,
-                Panel::Body => app.active_panel = Panel::Response,
-                Panel::Response => app.active_panel = Panel::Url,
-            },
-            KeyCode::BackTab => match app.active_panel {
-                Panel::Url => app.active_panel = Panel::Response,
-                Panel::QueryParams => app.active_panel = Panel::Url,
-                Panel::Headers => app.active_panel = Panel::QueryParams,
-                Panel::Body => app.active_panel = Panel::Headers,
-                Panel::Response => app.active_panel = Panel::Body,
-            },
-            KeyCode::Char('j') => match app.active_panel {
-                Panel::Url => app.active_panel = Panel::QueryParams,
-                Panel::QueryParams => app.active_panel = Panel::Headers,
-                Panel::Headers => app.active_panel = Panel::Body,
-                Panel::Body => app.active_panel = Panel::Response,
-                Panel::Response => {
-                    app.response_scroll += 10;
-                    app.active_panel = Panel::Response
-                }
-            },
-            KeyCode::Char('k') if app.active_panel == Panel::Response => {
-                if app.response_scroll > 0 {
-                    app.response_scroll -= 10;
+        match self.app.app_state.mode {
+            Mode::Normal => {
+                self.state.key_code = key.code;
+                self.normal_mode();
+            }
+            Mode::Edit => {
+                self.state.key_code = key.code;
+                self.edit_mode(key)
+            }
+        }
+    }
+
+    fn normal_mode(&mut self) {
+        match self.state.key_code {
+            KeyCode::Backspace => {}
+            KeyCode::Enter => self.app.send_request(),
+            KeyCode::Left => {}
+            KeyCode::Right => {}
+            KeyCode::Up => {}
+            KeyCode::Down => {}
+            KeyCode::Home => {}
+            KeyCode::End => {}
+            KeyCode::PageUp => {}
+            KeyCode::PageDown => {}
+            KeyCode::Tab => {
+                self.app.app_state.active_panel = self.app.app_state.active_panel.next();
+            }
+            KeyCode::BackTab => {
+                self.app.app_state.active_panel = self.app.app_state.active_panel.prev();
+            }
+            KeyCode::Delete => {}
+            KeyCode::Insert => {}
+            KeyCode::F(_) => {}
+            KeyCode::Char('i') => {
+                if matches!(
+                    self.app.app_state.active_panel,
+                    ActivePanel::Url
+                        | ActivePanel::ReqQuery
+                        | ActivePanel::ReqHeaders
+                        | ActivePanel::ReqBody
+                ) {
+                    self.app.app_state.mode = Mode::Edit;
                 }
             }
-            KeyCode::Char('k') => {}
-            KeyCode::Char('i') => app.mode = Mode::Edit,
-            KeyCode::Char('q') => app.should_quit = true,
-            KeyCode::Char('m') => match app.request.method {
-                HttpMethod::GET => app.request.method = HttpMethod::POST,
-                HttpMethod::POST => app.request.method = HttpMethod::PUT,
-                HttpMethod::PUT => app.request.method = HttpMethod::DELETE,
-                HttpMethod::DELETE => app.request.method = HttpMethod::PATCH,
-                HttpMethod::PATCH => app.request.method = HttpMethod::HEAD,
-                HttpMethod::HEAD => app.request.method = HttpMethod::OPTIONS,
-                HttpMethod::OPTIONS => app.request.method = HttpMethod::GET,
-            },
-            _ => {
-                panic!("All keys need to be handled!")
+            KeyCode::Char('j') => {
+                if self.app.app_state.active_panel == ActivePanel::ResBody {
+                    let max_scroll = self
+                        .app
+                        .app_state
+                        .response_line_count
+                        .saturating_sub(self.app.app_state.response_viewport_height as usize);
+                    let max_scroll = (max_scroll.min(u16::MAX as usize)) as u16;
+                    if self.app.app_state.response_scroll < max_scroll {
+                        self.app.app_state.response_scroll += 1;
+                    }
+                }
             }
-        },
-        Mode::Edit => match app.active_panel {
-            Panel::Url => match key.code {
-                KeyCode::Esc => app.mode = Mode::Normal,
-                KeyCode::Enter => app.send_request(),
-                _ => {
-                    app.url_input.input(key);
+            KeyCode::Char('k') => {
+                if self.app.app_state.active_panel == ActivePanel::ResBody {
+                    self.app.app_state.response_scroll =
+                        self.app.app_state.response_scroll.saturating_sub(1);
                 }
-            },
-            Panel::QueryParams => match key.code {
-                KeyCode::Esc => app.mode = Mode::Normal,
-                KeyCode::Tab => app.query_params_input.insert_char(':'),
-                _ => {
-                    app.query_params_input.input(key);
-                }
-            },
-            Panel::Headers => match key.code {
-                KeyCode::Esc => app.mode = Mode::Normal,
-                KeyCode::Tab => app.headers_input.insert_char(':'),
-                _ => {
-                    app.headers_input.input(key);
-                }
-            },
-            _ => {
-                panic!("All keys need to be handled!")
             }
-        },
+            KeyCode::Char('m') => {
+                self.app.next_method();
+            }
+            KeyCode::Char('M') => {
+                self.app.prev_method();
+            }
+            KeyCode::Char('b') => {
+                self.app.next_body_mode();
+            }
+            KeyCode::Char('B') => {
+                self.app.prev_body_mode();
+            }
+            KeyCode::Char('q') => {
+                self.app.app_state.should_exit = true;
+            }
+            KeyCode::Char(_) => {}
+            KeyCode::Null => {}
+            KeyCode::Esc => {}
+            KeyCode::CapsLock => {}
+            KeyCode::ScrollLock => {}
+            KeyCode::NumLock => {}
+            KeyCode::PrintScreen => {}
+            KeyCode::Pause => {}
+            KeyCode::Menu => {}
+            KeyCode::KeypadBegin => {}
+            KeyCode::Media(_media_key_code) => {}
+            KeyCode::Modifier(_modifier_key_code) => {}
+        }
+    }
+
+    fn edit_mode(&mut self, key: KeyEvent) {
+        let active_panel = self.app.app_state.active_panel;
+        let active_input = match active_panel {
+            ActivePanel::Url => Some(&mut self.app.url_input),
+            ActivePanel::ReqQuery => Some(&mut self.app.req_query_input),
+            ActivePanel::ReqHeaders => Some(&mut self.app.req_headers_input),
+            ActivePanel::ReqBody => Some(&mut self.app.req_body_input),
+            _ => None,
+        };
+
+        match self.state.key_code {
+            KeyCode::Char(_)
+            | KeyCode::Backspace
+            | KeyCode::Delete
+            | KeyCode::Left
+            | KeyCode::Right
+            | KeyCode::Home
+            | KeyCode::End => {
+                if let Some(active_input) = active_input {
+                    active_input.handle_event(&Event::Key(key));
+                }
+            }
+            KeyCode::Esc => {
+                self.app.app_state.mode = Mode::Normal;
+            }
+            KeyCode::Enter => {
+                if active_panel == ActivePanel::Url
+                    || key.modifiers.contains(KeyModifiers::CONTROL)
+                {
+                    self.app.send_request();
+                } else if let Some(active_input) = active_input {
+                    active_input.handle(InputRequest::InsertChar('\n'));
+                }
+            }
+            KeyCode::Up => {}
+            KeyCode::Down => {}
+            KeyCode::PageUp => {}
+            KeyCode::PageDown => {}
+            KeyCode::Tab => {}
+            KeyCode::BackTab => {}
+            KeyCode::Insert => {}
+            KeyCode::F(_) => {}
+            KeyCode::Null => {}
+            KeyCode::CapsLock => {}
+            KeyCode::ScrollLock => {}
+            KeyCode::NumLock => {}
+            KeyCode::PrintScreen => {}
+            KeyCode::Pause => {}
+            KeyCode::Menu => {}
+            KeyCode::KeypadBegin => {}
+            KeyCode::Media(_media_key_code) => {}
+            KeyCode::Modifier(_modifier_key_code) => {}
+        }
     }
 }
