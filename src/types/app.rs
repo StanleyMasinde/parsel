@@ -276,7 +276,7 @@ impl<'a> App<'a> {
                             format!("The provided url: {url} is invalid.")
                         }
                         curl_rest::Error::InvalidHeaderValue(v) => {
-                            format!("Invalid header value: {v} supplied supplied.")
+                            format!("Invalid header value: {v} supplied.")
                         }
                         curl_rest::Error::InvalidHeaderName(n) => {
                             format!("Invalid header name: {n}.")
