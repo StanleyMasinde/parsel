@@ -118,14 +118,14 @@ impl ResponseBody {
 fn highlight_body(body: &str, content_type: Option<&str>) -> Option<Text<'static>> {
     let config = content_type.and_then(map_content_type_to_highlight_config)?;
     let mut highlighter = Highlighter::new();
-    let mut events = highlighter
+    let events = highlighter
         .highlight(config, body.as_bytes(), None, |_| None)
         .ok()?;
     let mut lines: Vec<Line> = Vec::new();
     let mut current: Vec<Span> = Vec::new();
     let mut stack: Vec<usize> = Vec::new();
 
-    while let Some(event) = events.next() {
+    for event in events {
         match event.ok()? {
             HighlightEvent::HighlightStart(id) => stack.push(id.0),
             HighlightEvent::HighlightEnd => {
@@ -137,7 +137,7 @@ fn highlight_body(body: &str, content_type: Option<&str>) -> Option<Text<'static
                     .and_then(|id| HIGHLIGHT_NAMES.get(*id))
                     .map(|name| style_for_highlight_name(name))
                     .unwrap_or_default();
-                let slice = std::str::from_utf8(&body.as_bytes()[start..end]).ok()?;
+                let slice = &body[start..end];
                 for (idx, piece) in slice.split('\n').enumerate() {
                     if idx > 0 {
                         lines.push(Line::from(std::mem::take(&mut current)));

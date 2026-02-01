@@ -18,7 +18,7 @@ use crate::ui::sections::{
     response_headers::ResponseHeaders, status_bar::StatusBar, url_bar::UrlBar,
 };
 use crate::{
-    types::app::{ActivePanel, App},
+    types::app::{ActivePanel, App, Mode},
     ui::layout::MainLayout,
 };
 
@@ -69,6 +69,8 @@ impl<'a> App<'a> {
             l.req_query,
             active_panel == ActivePanel::ReqQuery,
             self.req_query_input.value(),
+            self.req_query_input.cursor(),
+            self.app_state.mode == Mode::Edit && active_panel == ActivePanel::ReqQuery,
         );
 
         RequestHeaders.render(
@@ -76,6 +78,8 @@ impl<'a> App<'a> {
             l.req_headers,
             active_panel == ActivePanel::ReqHeaders,
             self.req_headers_input.value(),
+            self.req_headers_input.cursor(),
+            self.app_state.mode == Mode::Edit && active_panel == ActivePanel::ReqHeaders,
         );
 
         RequestBody.render(frame, l.req_body, active_panel == ActivePanel::ReqBody);

@@ -128,9 +128,9 @@ impl<'b, 'a> InputHandler<'b, 'a> {
                 self.app.app_state.mode = Mode::Normal;
             }
             KeyCode::Enter => {
-                if active_panel == ActivePanel::Url {
-                    self.app.send_request();
-                } else if key.modifiers.contains(KeyModifiers::CONTROL) {
+                if active_panel == ActivePanel::Url
+                    || key.modifiers.contains(KeyModifiers::CONTROL)
+                {
                     self.app.send_request();
                 } else if let Some(active_input) = active_input {
                     active_input.handle(InputRequest::InsertChar('\n'));

@@ -1,4 +1,7 @@
-use std::{borrow::Cow, sync::mpsc::{Receiver, Sender}};
+use std::{
+    borrow::Cow,
+    sync::mpsc::{Receiver, Sender},
+};
 
 use curl_rest::{Client, Header, Method, QueryParam, Response};
 use ratatui::crossterm::event::KeyEvent;
