@@ -48,12 +48,12 @@ impl ActivePanel {
 
     pub fn prev(self) -> Self {
         match self {
-            Self::Url => Self::ReqQuery,
+            Self::Url => Self::ResBody,
             Self::ReqQuery => Self::Url,
             Self::ReqHeaders => Self::ReqQuery,
             Self::ReqBody => Self::ReqHeaders,
             Self::ResHeaders => Self::ReqBody,
-            Self::ResBody => Self::Url,
+            Self::ResBody => Self::ResHeaders,
         }
     }
 }
