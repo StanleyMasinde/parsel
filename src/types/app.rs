@@ -1,10 +1,7 @@
 use std::sync::mpsc::{Receiver, Sender};
 
 use curl_rest::{Client, Method, Response};
-use ratatui::{
-    crossterm::event::KeyEvent,
-    widgets::{Paragraph, Widget},
-};
+use ratatui::crossterm::event::KeyEvent;
 use tui_input::Input;
 
 use crate::types::input_handler::{InputHandler, InputState};
@@ -46,7 +43,7 @@ impl ActivePanel {
             Self::ReqHeaders => Self::ReqQuery,
             Self::ReqBody => Self::ReqHeaders,
             Self::ResHeaders => Self::ReqBody,
-            Self::ResBody => Self::ResHeaders,
+            Self::ResBody => Self::Url,
         }
     }
 }
@@ -61,6 +58,10 @@ pub struct AppState {
     pub response_body: Option<String>,
     pub response_status: Option<String>,
     pub response_headers: Option<String>,
+    pub response_content_type: Option<String>,
+    pub response_scroll: u16,
+    pub response_viewport_height: u16,
+    pub response_line_count: usize,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -112,6 +113,8 @@ impl<'a> App<'a> {
         self.app_state.response_body = None;
         self.app_state.response_status = None;
         self.app_state.response_headers = None;
+        self.app_state.response_content_type = None;
+        self.app_state.response_scroll = 0;
 
         let request = self.request.clone();
         let method = self.request.method.clone();
@@ -178,6 +181,12 @@ impl<'a> App<'a> {
             self.app_state.response_status = Some(response.status.to_string());
             self.app_state.response_body =
                 Some(String::from_utf8_lossy(&response.body).to_string());
+            self.app_state.response_content_type = response
+                .headers
+                .iter()
+                .find(|h| h.name.eq_ignore_ascii_case("content-type"))
+                .map(|h| h.value.to_string());
+
             if response.headers.is_empty() {
                 self.app_state.response_headers = None;
             } else {
@@ -189,6 +198,7 @@ impl<'a> App<'a> {
                     .join("\n");
                 self.app_state.response_headers = Some(headers);
             }
+            self.app_state.response_scroll = 0;
             return;
         }
 
@@ -196,14 +206,5 @@ impl<'a> App<'a> {
             self.app_state.is_loading = false;
             self.app_state.error = Some(message);
         }
-    }
-}
-
-impl<'a> Widget for &App<'a> {
-    fn render(self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer)
-    where
-        Self: Sized,
-    {
-        Paragraph::new("Parsel").centered().render(area, buf);
     }
 }

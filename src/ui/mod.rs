@@ -47,7 +47,7 @@ impl<'a> App<'a> {
         }
     }
 
-    fn draw(&self, frame: &mut Frame) {
+    fn draw(&mut self, frame: &mut Frame) {
         let l = MainLayout::split(frame.area());
         let active_panel = self.app_state.active_panel;
 
@@ -70,11 +70,27 @@ impl<'a> App<'a> {
         RequestBody.render(frame, l.req_body, active_panel == ActivePanel::ReqBody);
 
         // Response sections (right)
+        self.app_state.response_viewport_height = l.res_body.height.saturating_sub(2);
+        self.app_state.response_line_count = ResponseBody.line_count(
+            self.app_state.response_body.as_deref(),
+            self.app_state.response_content_type.as_deref(),
+        );
+        let max_scroll = self
+            .app_state
+            .response_line_count
+            .saturating_sub(self.app_state.response_viewport_height as usize);
+        let max_scroll = (max_scroll.min(u16::MAX as usize)) as u16;
+        if self.app_state.response_scroll > max_scroll {
+            self.app_state.response_scroll = max_scroll;
+        }
+
         ResponseBody.render(
             frame,
             l.res_body,
             active_panel == ActivePanel::ResBody,
             self.app_state.response_body.as_deref(),
+            self.app_state.response_content_type.as_deref(),
+            self.app_state.response_scroll,
         );
 
         ResponseHeaders.render(

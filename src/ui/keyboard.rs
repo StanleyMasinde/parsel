@@ -54,6 +54,25 @@ impl<'b, 'a> InputHandler<'b, 'a> {
                     );
                 }
             }
+            KeyCode::Char('j') => {
+                if self.app.app_state.active_panel == ActivePanel::ResBody {
+                    let max_scroll = self
+                        .app
+                        .app_state
+                        .response_line_count
+                        .saturating_sub(self.app.app_state.response_viewport_height as usize);
+                    let max_scroll = (max_scroll.min(u16::MAX as usize)) as u16;
+                    if self.app.app_state.response_scroll < max_scroll {
+                        self.app.app_state.response_scroll += 1;
+                    }
+                }
+            }
+            KeyCode::Char('k') => {
+                if self.app.app_state.active_panel == ActivePanel::ResBody {
+                    self.app.app_state.response_scroll =
+                        self.app.app_state.response_scroll.saturating_sub(1);
+                }
+            }
             KeyCode::Char(_) => todo!(),
             KeyCode::Null => todo!(),
             KeyCode::Esc => {}
