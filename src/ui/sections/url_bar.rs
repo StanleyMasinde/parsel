@@ -30,7 +30,9 @@ impl<'a> UrlBar<'a> {
         frame.render_widget(widget, area);
 
         if self.0.app_state.mode == Mode::Edit && active {
+            let max_col = area.width.saturating_sub(2);
             let cursor = self.0.url_input.visual_cursor() as u16;
+            let cursor = cursor.min(max_col);
             frame.set_cursor_position((area.x + cursor + 1, area.y + 1));
         }
     }
