@@ -25,25 +25,25 @@ impl<'b, 'a> InputHandler<'b, 'a> {
 
     fn normal_mode(&mut self) {
         match self.state.key_code {
-            KeyCode::Backspace => todo!(),
+            KeyCode::Backspace => {}
             KeyCode::Enter => self.app.send_request(),
-            KeyCode::Left => todo!(),
-            KeyCode::Right => todo!(),
-            KeyCode::Up => todo!(),
-            KeyCode::Down => todo!(),
-            KeyCode::Home => todo!(),
-            KeyCode::End => todo!(),
-            KeyCode::PageUp => todo!(),
-            KeyCode::PageDown => todo!(),
+            KeyCode::Left => {}
+            KeyCode::Right => {}
+            KeyCode::Up => {}
+            KeyCode::Down => {}
+            KeyCode::Home => {}
+            KeyCode::End => {}
+            KeyCode::PageUp => {}
+            KeyCode::PageDown => {}
             KeyCode::Tab => {
                 self.app.app_state.active_panel = self.app.app_state.active_panel.next();
             }
             KeyCode::BackTab => {
                 self.app.app_state.active_panel = self.app.app_state.active_panel.prev();
             }
-            KeyCode::Delete => todo!(),
-            KeyCode::Insert => todo!(),
-            KeyCode::F(_) => todo!(),
+            KeyCode::Delete => {}
+            KeyCode::Insert => {}
+            KeyCode::F(_) => {}
             KeyCode::Char('i') => {
                 if matches!(
                     self.app.app_state.active_panel,
@@ -53,11 +53,6 @@ impl<'b, 'a> InputHandler<'b, 'a> {
                         | ActivePanel::ReqBody
                 ) {
                     self.app.app_state.mode = Mode::Edit;
-                } else {
-                    todo!(
-                        "unhandled normal input for non-url panel: {:?}",
-                        self.app.app_state.active_panel
-                    );
                 }
             }
             KeyCode::Char('j') => {
@@ -91,22 +86,21 @@ impl<'b, 'a> InputHandler<'b, 'a> {
             KeyCode::Char('B') => {
                 self.app.prev_body_mode();
             }
-            KeyCode::Char(_) => todo!(),
-            KeyCode::Null => todo!(),
+            KeyCode::Char('q') => {
+                self.app.app_state.should_exit = true;
+            }
+            KeyCode::Char(_) => {}
+            KeyCode::Null => {}
             KeyCode::Esc => {}
-            KeyCode::CapsLock => todo!(),
-            KeyCode::ScrollLock => todo!(),
-            KeyCode::NumLock => todo!(),
-            KeyCode::PrintScreen => todo!(),
-            KeyCode::Pause => todo!(),
-            KeyCode::Menu => todo!(),
-            KeyCode::KeypadBegin => todo!(),
-            KeyCode::Media(_media_key_code) => {
-                todo!()
-            }
-            KeyCode::Modifier(_modifier_key_code) => {
-                todo!()
-            }
+            KeyCode::CapsLock => {}
+            KeyCode::ScrollLock => {}
+            KeyCode::NumLock => {}
+            KeyCode::PrintScreen => {}
+            KeyCode::Pause => {}
+            KeyCode::Menu => {}
+            KeyCode::KeypadBegin => {}
+            KeyCode::Media(_media_key_code) => {}
+            KeyCode::Modifier(_modifier_key_code) => {}
         }
     }
 
@@ -130,8 +124,6 @@ impl<'b, 'a> InputHandler<'b, 'a> {
             | KeyCode::End => {
                 if let Some(active_input) = active_input {
                     active_input.handle_event(&Event::Key(key));
-                } else {
-                    todo!("unhandled edit input for panel: {:?}", active_panel);
                 }
             }
             KeyCode::Esc => {
@@ -144,32 +136,26 @@ impl<'b, 'a> InputHandler<'b, 'a> {
                     self.app.send_request();
                 } else if let Some(active_input) = active_input {
                     active_input.handle(InputRequest::InsertChar('\n'));
-                } else {
-                    todo!("unhandled edit input for panel: {:?}", active_panel);
                 }
             }
-            KeyCode::Up => todo!(),
-            KeyCode::Down => todo!(),
-            KeyCode::PageUp => todo!(),
-            KeyCode::PageDown => todo!(),
-            KeyCode::Tab => todo!(),
-            KeyCode::BackTab => todo!(),
-            KeyCode::Insert => todo!(),
-            KeyCode::F(_) => todo!(),
-            KeyCode::Null => todo!(),
-            KeyCode::CapsLock => todo!(),
-            KeyCode::ScrollLock => todo!(),
-            KeyCode::NumLock => todo!(),
-            KeyCode::PrintScreen => todo!(),
-            KeyCode::Pause => todo!(),
-            KeyCode::Menu => todo!(),
-            KeyCode::KeypadBegin => todo!(),
-            KeyCode::Media(_media_key_code) => {
-                todo!()
-            }
-            KeyCode::Modifier(_modifier_key_code) => {
-                todo!()
-            }
+            KeyCode::Up => {}
+            KeyCode::Down => {}
+            KeyCode::PageUp => {}
+            KeyCode::PageDown => {}
+            KeyCode::Tab => {}
+            KeyCode::BackTab => {}
+            KeyCode::Insert => {}
+            KeyCode::F(_) => {}
+            KeyCode::Null => {}
+            KeyCode::CapsLock => {}
+            KeyCode::ScrollLock => {}
+            KeyCode::NumLock => {}
+            KeyCode::PrintScreen => {}
+            KeyCode::Pause => {}
+            KeyCode::Menu => {}
+            KeyCode::KeypadBegin => {}
+            KeyCode::Media(_media_key_code) => {}
+            KeyCode::Modifier(_modifier_key_code) => {}
         }
     }
 }
