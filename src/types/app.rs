@@ -17,6 +17,13 @@ pub enum Mode {
 }
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
+pub enum BodyMode {
+    #[default]
+    Json,
+    Form,
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub enum ActivePanel {
     #[default]
     Url,
@@ -56,6 +63,7 @@ pub struct AppState {
     pub should_exit: bool,
     pub mode: Mode,
     pub active_panel: ActivePanel,
+    pub body_mode: BodyMode,
     pub(crate) is_loading: bool,
     pub error: Option<String>,
     pub response_body: Option<String>,
@@ -73,11 +81,17 @@ struct Request {
     body: String,
 }
 
+enum BodyPayload {
+    Json(String),
+    Form(String),
+}
+
 pub struct App<'a> {
     pub app_state: AppState,
     pub url_input: Input,
     pub req_query_input: Input,
     pub req_headers_input: Input,
+    pub req_body_input: Input,
     pub network: Client<'a>,
     request: Request,
     request_tx: Sender<Response>,
@@ -97,6 +111,7 @@ impl<'a> Default for App<'a> {
             url_input: Default::default(),
             req_query_input: Default::default(),
             req_headers_input: Default::default(),
+            req_body_input: Default::default(),
             network: Default::default(),
             request: Default::default(),
             request_tx,
@@ -156,6 +171,27 @@ impl<'a> App<'a> {
         };
     }
 
+    pub(crate) fn body_content_type(&self) -> &'static str {
+        match self.app_state.body_mode {
+            BodyMode::Json => "application/json",
+            BodyMode::Form => "application/x-www-form-urlencoded",
+        }
+    }
+
+    pub(crate) fn next_body_mode(&mut self) {
+        self.app_state.body_mode = match self.app_state.body_mode {
+            BodyMode::Json => BodyMode::Form,
+            BodyMode::Form => BodyMode::Json,
+        };
+    }
+
+    pub(crate) fn prev_body_mode(&mut self) {
+        self.app_state.body_mode = match self.app_state.body_mode {
+            BodyMode::Json => BodyMode::Form,
+            BodyMode::Form => BodyMode::Json,
+        };
+    }
+
     pub(crate) fn send_request(&mut self) {
         self.app_state.is_loading = true;
         self.app_state.error = None;
@@ -174,12 +210,43 @@ impl<'a> App<'a> {
         let error_tx = self.err_tx.clone();
 
         let query_params = parse_query_params(self.req_query_input.value());
-        let headers = parse_headers(self.req_headers_input.value());
+        let mut headers = parse_headers(self.req_headers_input.value());
+        let body_mode = self.app_state.body_mode;
+        let body_raw = self.req_body_input.value().to_string();
+        let body_payload = match body_mode {
+            BodyMode::Json => {
+                let pairs = parse_key_value_lines(&body_raw);
+                let json = json_from_pairs(pairs);
+                json.map(BodyPayload::Json)
+            }
+            BodyMode::Form => {
+                let pairs = parse_key_value_lines(&body_raw);
+                let encoded = form_encode(pairs);
+                if encoded.is_empty() {
+                    None
+                } else {
+                    Some(BodyPayload::Form(encoded))
+                }
+            }
+        };
+        if matches!(body_payload, Some(BodyPayload::Form(_)))
+            && !has_content_type(&headers)
+        {
+            headers.push(Header::ContentType(Cow::Borrowed(
+                "application/x-www-form-urlencoded",
+            )));
+        }
 
         std::thread::spawn(move || {
-            let http_client: Client<'static> = Client::default()
+            let mut http_client: Client<'static> = Client::default()
                 .query_params(query_params)
                 .headers(headers);
+            if let Some(body_payload) = body_payload {
+                http_client = match body_payload {
+                    BodyPayload::Json(body) => http_client.body_json(body),
+                    BodyPayload::Form(body) => http_client.body_text(body),
+                };
+            }
             let res = match method {
                 Method::Get => http_client.get().send(url.as_str()),
                 Method::Post => http_client.post().send(url.as_str()),
@@ -277,6 +344,25 @@ fn parse_key_value_lines(input: &str) -> Vec<(String, String)> {
         .collect()
 }
 
+fn form_encode(pairs: Vec<(String, String)>) -> String {
+    let mut serializer = url::form_urlencoded::Serializer::new(String::new());
+    for (key, value) in pairs {
+        serializer.append_pair(&key, &value);
+    }
+    serializer.finish()
+}
+
+fn json_from_pairs(pairs: Vec<(String, String)>) -> Option<String> {
+    if pairs.is_empty() {
+        return None;
+    }
+    let mut map = serde_json::Map::new();
+    for (key, value) in pairs {
+        map.insert(key, serde_json::Value::String(value));
+    }
+    serde_json::to_string(&serde_json::Value::Object(map)).ok()
+}
+
 fn parse_query_params(input: &str) -> Vec<QueryParam<'static>> {
     parse_key_value_lines(input)
         .into_iter()
@@ -289,4 +375,12 @@ fn parse_headers(input: &str) -> Vec<Header<'static>> {
         .into_iter()
         .map(|(key, value)| Header::Custom(Cow::Owned(key), Cow::Owned(value)))
         .collect()
+}
+
+fn has_content_type(headers: &[Header<'static>]) -> bool {
+    headers.iter().any(|header| match header {
+        Header::ContentType(_) => true,
+        Header::Custom(name, _) => name.eq_ignore_ascii_case("content-type"),
+        _ => false,
+    })
 }

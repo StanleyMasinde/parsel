@@ -82,7 +82,15 @@ impl<'a> App<'a> {
             self.app_state.mode == Mode::Edit && active_panel == ActivePanel::ReqHeaders,
         );
 
-        RequestBody.render(frame, l.req_body, active_panel == ActivePanel::ReqBody);
+        RequestBody.render(
+            frame,
+            l.req_body,
+            active_panel == ActivePanel::ReqBody,
+            self.req_body_input.value(),
+            self.req_body_input.cursor(),
+            self.app_state.mode == Mode::Edit && active_panel == ActivePanel::ReqBody,
+            self.body_content_type(),
+        );
 
         // Response sections (right)
         self.app_state.response_viewport_height = l.res_body.height.saturating_sub(2);

@@ -913,6 +913,7 @@ dependencies = [
  "tree-sitter-html",
  "tree-sitter-json",
  "tui-input",
+ "url",
 ]
 
 [[package]]

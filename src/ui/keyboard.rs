@@ -47,7 +47,10 @@ impl<'b, 'a> InputHandler<'b, 'a> {
             KeyCode::Char('i') => {
                 if matches!(
                     self.app.app_state.active_panel,
-                    ActivePanel::Url | ActivePanel::ReqQuery | ActivePanel::ReqHeaders
+                    ActivePanel::Url
+                        | ActivePanel::ReqQuery
+                        | ActivePanel::ReqHeaders
+                        | ActivePanel::ReqBody
                 ) {
                     self.app.app_state.mode = Mode::Edit;
                 } else {
@@ -82,6 +85,12 @@ impl<'b, 'a> InputHandler<'b, 'a> {
             KeyCode::Char('M') => {
                 self.app.prev_method();
             }
+            KeyCode::Char('b') => {
+                self.app.next_body_mode();
+            }
+            KeyCode::Char('B') => {
+                self.app.prev_body_mode();
+            }
             KeyCode::Char(_) => todo!(),
             KeyCode::Null => todo!(),
             KeyCode::Esc => {}
@@ -107,6 +116,7 @@ impl<'b, 'a> InputHandler<'b, 'a> {
             ActivePanel::Url => Some(&mut self.app.url_input),
             ActivePanel::ReqQuery => Some(&mut self.app.req_query_input),
             ActivePanel::ReqHeaders => Some(&mut self.app.req_headers_input),
+            ActivePanel::ReqBody => Some(&mut self.app.req_body_input),
             _ => None,
         };
 

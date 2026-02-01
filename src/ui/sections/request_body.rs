@@ -8,28 +8,75 @@ use ratatui::{
 pub struct RequestBody;
 
 impl RequestBody {
-    pub fn render(&self, frame: &mut Frame, area: Rect, active: bool) {
+    pub fn render(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        active: bool,
+        value: &str,
+        cursor: usize,
+        show_cursor: bool,
+        content_type: &str,
+    ) {
         let title = if active {
-            "● Request Body"
+            format!("● Request Body ({})", content_type)
         } else {
-            "○ Request Body"
+            format!("○ Request Body ({})", content_type)
         };
         let border_style = if active {
             Style::default().fg(Color::Cyan)
         } else {
             Style::default()
         };
+        let content = if value.is_empty() { "key: val" } else { value };
 
         frame.render_widget(
-            Paragraph::new("{\n  \"hello\": \"world\"\n}")
+            Paragraph::new(content)
                 .block(
                     Block::default()
                         .borders(Borders::ALL)
                         .border_style(border_style)
                         .title(title),
                 )
-                .wrap(Wrap { trim: true }),
+                .wrap(Wrap { trim: false }),
             area,
         );
+
+        if show_cursor {
+            let (line, col) = cursor_position(value, cursor, area.width.saturating_sub(2));
+            if area.height > 2 {
+                let line = line.min(area.height.saturating_sub(2) as usize);
+                let col = col.min(area.width.saturating_sub(2) as usize);
+                frame.set_cursor_position((
+                    area.x + col as u16 + 1,
+                    area.y + line as u16 + 1,
+                ));
+            }
+        }
     }
+}
+
+fn cursor_position(value: &str, cursor: usize, width: u16) -> (usize, usize) {
+    if width == 0 {
+        return (0, 0);
+    }
+    let width = width as usize;
+    let mut line = 0usize;
+    let mut col = 0usize;
+    for (idx, ch) in value.chars().enumerate() {
+        if idx >= cursor {
+            break;
+        }
+        if ch == '\n' {
+            line += 1;
+            col = 0;
+            continue;
+        }
+        col += 1;
+        if col >= width {
+            line += 1;
+            col = 0;
+        }
+    }
+    (line, col)
 }
