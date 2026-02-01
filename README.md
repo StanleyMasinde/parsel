@@ -1,23 +1,23 @@
-# Parsel
+# parsel
 
-Parsel is a terminal UI HTTP client for crafting requests and inspecting responses.
+parsel is a terminal UI HTTP client for crafting requests and inspecting responses.
 
 ## Install
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/StanleyMasinde/parse/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/StanleyMasinde/parsel/main/install.sh | sh
 ```
 
 Optional: install a specific version
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/StanleyMasinde/parse/main/install.sh | sh -s v1.2.3
+curl -fsSL https://raw.githubusercontent.com/StanleyMasinde/parsel/main/install.sh | sh -s v1.2.3
 ```
 
 Install to a custom directory
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/StanleyMasinde/parse/main/install.sh | PARSEL_INSTALL=~/.local/bin sh
+curl -fsSL https://raw.githubusercontent.com/StanleyMasinde/parsel/main/install.sh | PARSEL_INSTALL=~/.local/bin sh
 ```
 
 ## Usage
