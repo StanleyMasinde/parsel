@@ -58,7 +58,7 @@ Query params, headers, and body inputs are entered as `key: value` pairs, one pe
 
 Examples:
 
-```
+```text
 token: 123
 page: 2
 ```
