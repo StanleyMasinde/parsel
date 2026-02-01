@@ -52,19 +52,30 @@ impl<'a> App<'a> {
         let active_panel = self.app_state.active_panel;
 
         // Method box
-        Method.render(frame, l.method, active_panel == ActivePanel::Url);
+        Method.render(
+            frame,
+            l.method,
+            active_panel == ActivePanel::Url,
+            self.method_label(),
+        );
 
         // URL bar
         let url_bar = UrlBar(self);
         url_bar.render(frame, l.url);
 
         // Request sections (left)
-        QueryParams.render(frame, l.req_query, active_panel == ActivePanel::ReqQuery);
+        QueryParams.render(
+            frame,
+            l.req_query,
+            active_panel == ActivePanel::ReqQuery,
+            self.req_query_input.value(),
+        );
 
         RequestHeaders.render(
             frame,
             l.req_headers,
             active_panel == ActivePanel::ReqHeaders,
+            self.req_headers_input.value(),
         );
 
         RequestBody.render(frame, l.req_body, active_panel == ActivePanel::ReqBody);
@@ -102,7 +113,14 @@ impl<'a> App<'a> {
         );
 
         // Status bar (bottom)
-        StatusBar.render(frame, l.status);
+        StatusBar.render(
+            frame,
+            l.status,
+            self.app_state.mode,
+            active_panel,
+            self.app_state.is_loading,
+            self.app_state.error.as_deref(),
+        );
 
         if self.app_state.is_loading {
             let loading_area = centered_area(frame.area(), 42, 7);

@@ -1,6 +1,6 @@
-use std::sync::mpsc::{Receiver, Sender};
+use std::{borrow::Cow, sync::mpsc::{Receiver, Sender}};
 
-use curl_rest::{Client, Method, Response};
+use curl_rest::{Client, Header, Method, QueryParam, Response};
 use ratatui::crossterm::event::KeyEvent;
 use tui_input::Input;
 
@@ -73,6 +73,8 @@ struct Request {
 pub struct App<'a> {
     pub app_state: AppState,
     pub url_input: Input,
+    pub req_query_input: Input,
+    pub req_headers_input: Input,
     pub network: Client<'a>,
     request: Request,
     request_tx: Sender<Response>,
@@ -90,6 +92,8 @@ impl<'a> Default for App<'a> {
         Self {
             app_state: Default::default(),
             url_input: Default::default(),
+            req_query_input: Default::default(),
+            req_headers_input: Default::default(),
             network: Default::default(),
             request: Default::default(),
             request_tx,
@@ -105,6 +109,48 @@ impl<'a> App<'a> {
     pub(crate) fn handle_key_events(&mut self, key_event: KeyEvent) {
         let mut input_handler = InputHandler::new(self, InputState::default());
         input_handler.handle(key_event);
+    }
+
+    pub(crate) fn method_label(&self) -> &'static str {
+        match self.request.method {
+            Method::Get => "GET",
+            Method::Post => "POST",
+            Method::Put => "PUT",
+            Method::Delete => "DELETE",
+            Method::Patch => "PATCH",
+            Method::Head => "HEAD",
+            Method::Options => "OPTIONS",
+            Method::Connect => "CONNECT",
+            Method::Trace => "TRACE",
+        }
+    }
+
+    pub(crate) fn next_method(&mut self) {
+        self.request.method = match self.request.method {
+            Method::Get => Method::Post,
+            Method::Post => Method::Put,
+            Method::Put => Method::Delete,
+            Method::Delete => Method::Patch,
+            Method::Patch => Method::Head,
+            Method::Head => Method::Options,
+            Method::Options => Method::Connect,
+            Method::Connect => Method::Trace,
+            Method::Trace => Method::Get,
+        };
+    }
+
+    pub(crate) fn prev_method(&mut self) {
+        self.request.method = match self.request.method {
+            Method::Get => Method::Trace,
+            Method::Post => Method::Get,
+            Method::Put => Method::Post,
+            Method::Delete => Method::Put,
+            Method::Patch => Method::Delete,
+            Method::Head => Method::Patch,
+            Method::Options => Method::Head,
+            Method::Connect => Method::Options,
+            Method::Trace => Method::Connect,
+        };
     }
 
     pub(crate) fn send_request(&mut self) {
@@ -124,11 +170,13 @@ impl<'a> App<'a> {
         let his_tx = self.his_tx.clone();
         let error_tx = self.err_tx.clone();
 
-        let _query_params = "foo?bar";
-        let _headers = "foo";
+        let query_params = parse_query_params(self.req_query_input.value());
+        let headers = parse_headers(self.req_headers_input.value());
 
         std::thread::spawn(move || {
-            let http_client: Client<'static> = Client::default();
+            let http_client: Client<'static> = Client::default()
+                .query_params(query_params)
+                .headers(headers);
             let res = match method {
                 Method::Get => http_client.get().send(url.as_str()),
                 Method::Post => http_client.post().send(url.as_str()),
@@ -207,4 +255,35 @@ impl<'a> App<'a> {
             self.app_state.error = Some(message);
         }
     }
+}
+
+fn parse_key_value_lines(input: &str) -> Vec<(String, String)> {
+    input
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .filter_map(|line| {
+            let (key, value) = line.split_once(':')?;
+            let key = key.trim();
+            if key.is_empty() {
+                return None;
+            }
+            let value = value.trim();
+            Some((key.to_string(), value.to_string()))
+        })
+        .collect()
+}
+
+fn parse_query_params(input: &str) -> Vec<QueryParam<'static>> {
+    parse_key_value_lines(input)
+        .into_iter()
+        .map(|(key, value)| QueryParam::new(key, value))
+        .collect()
+}
+
+fn parse_headers(input: &str) -> Vec<Header<'static>> {
+    parse_key_value_lines(input)
+        .into_iter()
+        .map(|(key, value)| Header::Custom(Cow::Owned(key), Cow::Owned(value)))
+        .collect()
 }

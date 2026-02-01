@@ -8,7 +8,7 @@ use ratatui::{
 pub struct Method;
 
 impl Method {
-    pub fn render(&self, frame: &mut Frame, area: Rect, active: bool) {
+    pub fn render(&self, frame: &mut Frame, area: Rect, active: bool, label: &str) {
         let title = if active { "● Method" } else { "○ Method" };
         let border_style = if active {
             Style::default().fg(Color::Cyan)
@@ -17,7 +17,7 @@ impl Method {
         };
 
         frame.render_widget(
-            Paragraph::new("GET")
+            Paragraph::new(label)
                 .block(
                     Block::default()
                         .borders(Borders::ALL)

@@ -2,14 +2,13 @@ use ratatui::{
     Frame,
     layout::Rect,
     style::{Color, Style},
-    text::Line,
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
 pub struct QueryParams;
 
 impl QueryParams {
-    pub fn render(&self, frame: &mut Frame, area: Rect, active: bool) {
+    pub fn render(&self, frame: &mut Frame, area: Rect, active: bool, value: &str) {
         let title = if active {
             "● Query Params"
         } else {
@@ -20,16 +19,21 @@ impl QueryParams {
         } else {
             Style::default()
         };
+        let content = if value.is_empty() {
+            "key: val"
+        } else {
+            value
+        };
 
         frame.render_widget(
-            Paragraph::new(Line::from("id: 42"))
+            Paragraph::new(content)
                 .block(
                     Block::default()
                         .borders(Borders::ALL)
                         .border_style(border_style)
                         .title(title),
                 )
-                .wrap(Wrap { trim: true }),
+                .wrap(Wrap { trim: false }),
             area,
         );
     }

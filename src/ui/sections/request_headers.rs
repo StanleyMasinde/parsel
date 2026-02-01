@@ -8,7 +8,7 @@ use ratatui::{
 pub struct RequestHeaders;
 
 impl RequestHeaders {
-    pub fn render(&self, frame: &mut Frame, area: Rect, active: bool) {
+    pub fn render(&self, frame: &mut Frame, area: Rect, active: bool, value: &str) {
         let title = if active {
             "● Request Headers"
         } else {
@@ -19,16 +19,21 @@ impl RequestHeaders {
         } else {
             Style::default()
         };
+        let content = if value.is_empty() {
+            "key: val"
+        } else {
+            value
+        };
 
         frame.render_widget(
-            Paragraph::new("accept: application/json\nauthorization: Bearer <token>")
+            Paragraph::new(content)
                 .block(
                     Block::default()
                         .borders(Borders::ALL)
                         .border_style(border_style)
                         .title(title),
                 )
-                .wrap(Wrap { trim: true }),
+                .wrap(Wrap { trim: false }),
             area,
         );
     }
