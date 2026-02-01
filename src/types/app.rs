@@ -229,9 +229,7 @@ impl<'a> App<'a> {
                 }
             }
         };
-        if matches!(body_payload, Some(BodyPayload::Form(_)))
-            && !has_content_type(&headers)
-        {
+        if matches!(body_payload, Some(BodyPayload::Form(_))) && !has_content_type(&headers) {
             headers.push(Header::ContentType(Cow::Borrowed(
                 "application/x-www-form-urlencoded",
             )));
