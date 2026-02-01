@@ -176,6 +176,8 @@ fn format_html(body: &str) -> Option<String> {
     let mut tokens = Vec::new();
     let mut buf = String::new();
     let mut in_tag = false;
+    let mut in_single_quote = false;
+    let mut in_double_quote = false;
     for ch in body.chars() {
         if ch == '<' {
             if !buf.is_empty() {
@@ -189,11 +191,20 @@ fn format_html(body: &str) -> Option<String> {
             buf.push(ch);
             continue;
         }
-        if ch == '>' && in_tag {
+        if in_tag {
+            if ch == '\'' && !in_double_quote {
+                in_single_quote = !in_single_quote;
+            } else if ch == '"' && !in_single_quote {
+                in_double_quote = !in_double_quote;
+            }
+        }
+        if ch == '>' && in_tag && !in_single_quote && !in_double_quote {
             buf.push(ch);
             tokens.push(buf.clone());
             buf.clear();
             in_tag = false;
+            in_single_quote = false;
+            in_double_quote = false;
             continue;
         }
         buf.push(ch);
@@ -297,5 +308,33 @@ fn style_for_highlight_name(name: &str) -> Style {
         }
         "type" | "type.builtin" | "constructor" => Style::default().fg(Color::LightBlue),
         _ => Style::default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_html;
+
+    #[test]
+    fn format_html_ignores_gt_inside_double_quotes() {
+        let input = r#"<div data-text="a > b"><span>ok</span></div>"#;
+        let expected = [
+            r#"<div data-text="a > b">"#,
+            "  <span>",
+            "    ok",
+            "  </span>",
+            "</div>",
+        ]
+        .join("\n");
+
+        assert_eq!(format_html(input).as_deref(), Some(expected.as_str()));
+    }
+
+    #[test]
+    fn format_html_ignores_gt_inside_single_quotes() {
+        let input = "<a title='x > y'>link</a>";
+        let expected = ["<a title='x > y'>", "  link", "</a>"].join("\n");
+
+        assert_eq!(format_html(input).as_deref(), Some(expected.as_str()));
     }
 }

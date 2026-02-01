@@ -1,4 +1,4 @@
-use parsel_v2::ui;
+use parsel::ui;
 
 fn main() {
     ui::run();
