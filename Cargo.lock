@@ -219,9 +219,9 @@ dependencies = [
 
 [[package]]
 name = "curl-rest"
-version = "0.3.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ace72c9b4bd7fd7df583958d0a302792ca1823dff8c7f70c615a644ea8fad198"
+checksum = "be2164c11b86717a266f9921d75ea94d486b832920b978cb7c557dc0a2f2cbf2"
 dependencies = [
  "curl",
  "percent-encoding",
