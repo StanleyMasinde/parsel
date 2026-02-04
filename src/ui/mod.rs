@@ -30,12 +30,8 @@ impl<'a> App<'a> {
             if event::poll(Duration::from_millis(50)).unwrap() {
                 let event = event::read().unwrap();
                 match event {
-                    event::Event::FocusGained => todo!(),
-                    event::Event::FocusLost => todo!(),
                     event::Event::Key(key_event) => self.handle_key_events(key_event),
-                    event::Event::Mouse(_mouse_event) => todo!(),
-                    event::Event::Paste(_) => todo!(),
-                    event::Event::Resize(_, _) => todo!(),
+                    _ => (),
                 }
             }
 
