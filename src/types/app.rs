@@ -229,15 +229,24 @@ impl<'a> App<'a> {
                 }
             }
         };
+
         if matches!(body_payload, Some(BodyPayload::Form(_))) && !has_content_type(&headers) {
             headers.push(Header::ContentType(Cow::Borrowed(
                 "application/x-www-form-urlencoded",
             )));
         }
 
+        let needs_brotli = headers.iter().any(|header| match header {
+            Header::Custom(key, val) => {
+                key.eq_ignore_ascii_case("Accept-Encoding") && val.eq_ignore_ascii_case("br")
+            }
+            _ => false,
+        });
+
         std::thread::spawn(move || {
             let mut http_client: Client<'static> = Client::default()
                 .query_params(query_params)
+                .brotli(needs_brotli)
                 .headers(headers);
             if let Some(body_payload) = body_payload {
                 http_client = match body_payload {
@@ -283,6 +292,9 @@ impl<'a> App<'a> {
                         }
                         curl_rest::Error::InvalidStatusCode(c) => {
                             format!("Invalid status code: {c}, supplied.")
+                        }
+                        curl_rest::Error::BrotliDecompression(e) => {
+                            format!("Failed to deceompress brotli: {e}")
                         }
                     };
                     let _ = error_tx.send(message.to_string());

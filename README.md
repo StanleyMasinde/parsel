@@ -67,6 +67,11 @@ Body modes:
 - JSON: values are encoded into a flat JSON object
 - Form: values are encoded as `application/x-www-form-urlencoded`
 
+Header notes:
+- Brotli workaround: if you set `Accept-Encoding: br`, parsel enables Brotli decompression in the HTTP client for that request.
+- Enabling Brotli disables `gzip` and `deflate` for that request.
+- This is a workaround because Rust libcurl does not support Brotli by default.
+
 ## Build from source
 
 ```sh
