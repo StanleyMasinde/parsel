@@ -6,7 +6,7 @@ use std::{
 
 use curl_rest::{Client, Header, Method, QueryParam, Response};
 use ratatui::crossterm::event::KeyEvent;
-use tui_input::Input;
+use tui_input::{Input, InputRequest};
 
 use crate::types::input_handler::{InputHandler, InputState};
 
@@ -132,6 +132,13 @@ impl<'a> Default for App<'a> {
 }
 
 impl<'a> App<'a> {
+    pub(crate) fn with_default_url(mut self, url: &str) -> Self {
+        url.chars().for_each(|char| {
+            self.url_input.handle(InputRequest::InsertChar(char));
+        });
+        self
+    }
+
     pub(crate) fn handle_key_events(&mut self, key_event: KeyEvent) {
         let mut input_handler = InputHandler::new(self, InputState::default());
         input_handler.handle(key_event);

@@ -28,6 +28,14 @@ Run:
 parsel
 ```
 
+Or start with a URL pre-filled from the first positional argument:
+
+```sh
+parsel https://httpbin.org/get
+```
+
+Only the first command-line argument is used as the initial URL.
+
 Workflow:
 - Enter a URL and configure the request on the left panels.
 - Press Enter to send the request and view the response on the right panels.

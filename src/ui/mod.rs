@@ -2,7 +2,7 @@ pub mod keyboard;
 pub mod layout;
 pub mod sections;
 
-use std::time::Duration;
+use std::{env, time::Duration};
 
 use ratatui::{
     DefaultTerminal, Frame,
@@ -163,7 +163,12 @@ impl<'a> App<'a> {
 }
 
 pub fn run() {
-    ratatui::run(|terminal| App::default().run(terminal))
+    let mut application = App::default();
+
+    if let Some(url) = env::args().skip(1).next() {
+        application = application.with_default_url(&url);
+    }
+    ratatui::run(|terminal| application.run(terminal))
 }
 
 fn centered_area(area: Rect, width: u16, height: u16) -> Rect {
