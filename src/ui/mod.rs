@@ -118,6 +118,7 @@ impl<'a> App<'a> {
             active_panel == ActivePanel::ResHeaders,
             self.app_state.response_status.as_deref(),
             self.app_state.response_headers.as_deref(),
+            self.app_state.response_time,
         );
 
         // Status bar (bottom)

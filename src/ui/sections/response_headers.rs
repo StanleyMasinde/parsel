@@ -15,12 +15,20 @@ impl ResponseHeaders {
         active: bool,
         status: Option<&str>,
         headers: Option<&str>,
+        response_time: u128,
     ) {
+        let mut title_text: String = "Response headers".to_string();
+
+        if response_time > 0 {
+            title_text = format!("Response headers | {}ms ", response_time);
+        }
+
         let title = if active {
-            "● Response Headers"
+            format!("● {title_text}")
         } else {
-            "○ Response Headers"
+            format!("○ {title_text}")
         };
+
         let border_style = if active {
             Style::default().fg(Color::Cyan)
         } else {
