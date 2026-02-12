@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     sync::mpsc::{Receiver, Sender},
+    time::Instant,
 };
 
 use curl_rest::{Client, Header, Method, QueryParam, Response};
@@ -73,6 +74,7 @@ pub struct AppState {
     pub response_scroll: u16,
     pub response_viewport_height: u16,
     pub response_line_count: usize,
+    pub(crate) response_time: u128,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -99,6 +101,8 @@ pub struct App<'a> {
     his_tx: Sender<Request>,
     err_tx: Sender<String>,
     err_rx: Receiver<String>,
+    elapsed_tx: Sender<u128>,
+    elapsed_rx: Receiver<u128>,
 }
 
 impl<'a> Default for App<'a> {
@@ -106,6 +110,8 @@ impl<'a> Default for App<'a> {
         let (request_tx, request_rx) = std::sync::mpsc::channel::<Response>();
         let (his_tx, _his_rx) = std::sync::mpsc::channel::<Request>();
         let (err_tx, err_rx) = std::sync::mpsc::channel::<String>();
+        let (elapsed_tx, elapsed_rx) = std::sync::mpsc::channel::<u128>();
+
         Self {
             app_state: Default::default(),
             url_input: Default::default(),
@@ -119,6 +125,8 @@ impl<'a> Default for App<'a> {
             his_tx,
             err_tx,
             err_rx,
+            elapsed_tx,
+            elapsed_rx,
         }
     }
 }
@@ -208,6 +216,7 @@ impl<'a> App<'a> {
         let request_tx = self.request_tx.clone();
         let his_tx = self.his_tx.clone();
         let error_tx = self.err_tx.clone();
+        let elapsed_tx = self.elapsed_tx.clone();
 
         let query_params = parse_query_params(self.req_query_input.value());
         let mut headers = parse_headers(self.req_headers_input.value());
@@ -244,6 +253,7 @@ impl<'a> App<'a> {
         });
 
         std::thread::spawn(move || {
+            let start_time = Instant::now();
             let mut http_client: Client<'static> = Client::default()
                 .query_params(query_params)
                 .brotli(needs_brotli)
@@ -266,6 +276,8 @@ impl<'a> App<'a> {
                 Method::Trace => http_client.trace().send(url.as_str()),
             };
 
+            let elapsed = start_time.elapsed().as_millis();
+
             match res {
                 Ok(res) => {
                     let resp = Response {
@@ -275,6 +287,7 @@ impl<'a> App<'a> {
                     };
                     let _ = request_tx.send(resp);
                     let _ = his_tx.send(request);
+                    let _ = elapsed_tx.send(elapsed);
                 }
                 Err(err) => {
                     let message = match err {
@@ -333,6 +346,10 @@ impl<'a> App<'a> {
         if let Ok(message) = self.err_rx.try_recv() {
             self.app_state.is_loading = false;
             self.app_state.error = Some(message);
+        }
+
+        if let Ok(request_time) = self.elapsed_rx.try_recv() {
+            self.app_state.response_time = request_time
         }
     }
 }
