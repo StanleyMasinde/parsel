@@ -17,7 +17,7 @@ impl ResponseHeaders {
         headers: Option<&str>,
         response_time: u128,
     ) {
-        let mut title_text: String = "Response Headers".to_string();
+        let mut title_text: String = "Response headers".to_string();
 
         if response_time > 0 {
             title_text = format!("Response headers | {}ms ", response_time);
