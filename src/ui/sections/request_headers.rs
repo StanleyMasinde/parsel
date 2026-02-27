@@ -7,16 +7,23 @@ use ratatui::{
 
 pub struct RequestHeaders;
 
+pub struct RequestHeadersProps<'a> {
+    pub area: Rect,
+    pub active: bool,
+    pub value: &'a str,
+    pub cursor: usize,
+    pub show_cursor: bool,
+}
+
 impl RequestHeaders {
-    pub fn render(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        active: bool,
-        value: &str,
-        cursor: usize,
-        show_cursor: bool,
-    ) {
+    pub fn render(&self, frame: &mut Frame, props: RequestHeadersProps<'_>) {
+        let RequestHeadersProps {
+            area,
+            active,
+            value,
+            cursor,
+            show_cursor,
+        } = props;
         let title = if active {
             "● Request Headers"
         } else {

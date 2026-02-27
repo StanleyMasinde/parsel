@@ -10,6 +10,14 @@ use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter}
 
 pub struct ResponseBody;
 
+pub struct ResponseBodyProps<'a> {
+    pub area: Rect,
+    pub active: bool,
+    pub body: Option<&'a str>,
+    pub content_type: Option<&'a str>,
+    pub scroll: u16,
+}
+
 static HIGHLIGHT_NAMES: &[&str] = &[
     "attribute",
     "comment",

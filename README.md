@@ -77,7 +77,7 @@ Body modes:
 - Form: values are encoded as `application/x-www-form-urlencoded`
 
 Header notes:
-- Brotli workaround: if you set `Accept-Encoding: br`, parsel enables Brotli decompression in the HTTP client for that request.
+- Brotli workaround: parsel parses `Accept-Encoding` (including `q=` weights) and enables Brotli decompression only when `br` is the highest-preference encoding.
 - Enabling Brotli disables `gzip` and `deflate` for that request.
 - This is a workaround because Rust libcurl does not support Brotli by default.
 

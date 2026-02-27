@@ -7,17 +7,25 @@ use ratatui::{
 
 pub struct RequestBody;
 
+pub struct RequestBodyProps<'a> {
+    pub area: Rect,
+    pub active: bool,
+    pub value: &'a str,
+    pub cursor: usize,
+    pub show_cursor: bool,
+    pub content_type: &'a str,
+}
+
 impl RequestBody {
-    pub fn render(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        active: bool,
-        value: &str,
-        cursor: usize,
-        show_cursor: bool,
-        content_type: &str,
-    ) {
+    pub fn render(&self, frame: &mut Frame, props: RequestBodyProps<'_>) {
+        let RequestBodyProps {
+            area,
+            active,
+            value,
+            cursor,
+            show_cursor,
+            content_type,
+        } = props;
         let title = if active {
             format!("● Request Body ({})", content_type)
         } else {

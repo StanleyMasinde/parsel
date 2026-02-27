@@ -262,12 +262,7 @@ impl<'a> App<'a> {
             )));
         }
 
-        let needs_brotli = headers.iter().any(|header| match header {
-            Header::Custom(key, val) => {
-                key.eq_ignore_ascii_case("Accept-Encoding") && val.eq_ignore_ascii_case("br")
-            }
-            _ => false,
-        });
+        let needs_brotli = should_enable_brotli(&headers);
 
         std::thread::spawn(move || {
             let start_time = Instant::now();
@@ -440,4 +435,60 @@ fn has_content_type(headers: &[Header<'static>]) -> bool {
         Header::Custom(name, _) => name.eq_ignore_ascii_case("content-type"),
         _ => false,
     })
+}
+
+fn should_enable_brotli(headers: &[Header<'static>]) -> bool {
+    let mut best_encoding: Option<(&str, f32, usize)> = None;
+    let mut index = 0usize;
+
+    for header in headers {
+        let Header::Custom(key, value) = header else {
+            continue;
+        };
+        if !key.eq_ignore_ascii_case("accept-encoding") {
+            continue;
+        }
+
+        for token in value.split(',') {
+            let mut parts = token.split(';');
+            let encoding = parts.next().map(str::trim).unwrap_or_default();
+            if encoding.is_empty() {
+                continue;
+            }
+
+            let mut q = 1.0f32;
+            for param in parts {
+                let Some((name, raw_value)) = param.split_once('=') else {
+                    continue;
+                };
+                if !name.trim().eq_ignore_ascii_case("q") {
+                    continue;
+                }
+
+                let Ok(parsed) = raw_value.trim().parse::<f32>() else {
+                    q = -1.0;
+                    break;
+                };
+                if !parsed.is_finite() || !(0.0..=1.0).contains(&parsed) {
+                    q = -1.0;
+                    break;
+                }
+                q = parsed;
+                break;
+            }
+
+            if q < 0.0 {
+                continue;
+            }
+
+            match best_encoding {
+                Some((_, best_q, best_idx)) if q < best_q || (q == best_q && index > best_idx) => {}
+                _ => best_encoding = Some((encoding, q, index)),
+            }
+
+            index += 1;
+        }
+    }
+
+    matches!(best_encoding, Some((encoding, q, _)) if q > 0.0 && encoding.eq_ignore_ascii_case("br"))
 }

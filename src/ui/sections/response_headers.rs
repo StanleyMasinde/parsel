@@ -7,16 +7,23 @@ use ratatui::{
 
 pub struct ResponseHeaders;
 
+pub struct ResponseHeadersProps<'a> {
+    pub area: Rect,
+    pub active: bool,
+    pub status: Option<&'a str>,
+    pub headers: Option<&'a str>,
+    pub response_time: u128,
+}
+
 impl ResponseHeaders {
-    pub fn render(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        active: bool,
-        status: Option<&str>,
-        headers: Option<&str>,
-        response_time: u128,
-    ) {
+    pub fn render(&self, frame: &mut Frame, props: ResponseHeadersProps<'_>) {
+        let ResponseHeadersProps {
+            area,
+            active,
+            status,
+            headers,
+            response_time,
+        } = props;
         let mut title_text: String = "Response headers".to_string();
 
         if response_time > 0 {

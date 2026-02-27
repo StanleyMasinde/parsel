@@ -8,16 +8,23 @@ use crate::types::app::{ActivePanel, Mode};
 
 pub struct StatusBar;
 
+pub struct StatusBarProps<'a> {
+    pub area: Rect,
+    pub mode: Mode,
+    pub active_panel: ActivePanel,
+    pub is_loading: bool,
+    pub error: Option<&'a str>,
+}
+
 impl StatusBar {
-    pub fn render(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        mode: Mode,
-        active_panel: ActivePanel,
-        is_loading: bool,
-        error: Option<&str>,
-    ) {
+    pub fn render(&self, frame: &mut Frame, props: StatusBarProps<'_>) {
+        let StatusBarProps {
+            area,
+            mode,
+            active_panel,
+            is_loading,
+            error,
+        } = props;
         let mode_label = match mode {
             Mode::Normal => "NORMAL",
             Mode::Edit => "EDIT",
