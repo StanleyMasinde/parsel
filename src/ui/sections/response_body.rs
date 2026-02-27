@@ -10,6 +10,14 @@ use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter}
 
 pub struct ResponseBody;
 
+pub struct ResponseBodyProps<'a> {
+    pub area: Rect,
+    pub active: bool,
+    pub body: Option<&'a str>,
+    pub content_type: Option<&'a str>,
+    pub scroll: u16,
+}
+
 static HIGHLIGHT_NAMES: &[&str] = &[
     "attribute",
     "comment",
@@ -67,15 +75,14 @@ static HTML_HIGHLIGHT: Lazy<HighlightConfiguration> = Lazy::new(|| {
 });
 
 impl ResponseBody {
-    pub fn render(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        active: bool,
-        body: Option<&str>,
-        content_type: Option<&str>,
-        scroll: u16,
-    ) {
+    pub fn render(&self, frame: &mut Frame, props: ResponseBodyProps<'_>) {
+        let ResponseBodyProps {
+            area,
+            active,
+            body,
+            content_type,
+            scroll,
+        } = props;
         let title = if active {
             "● Response"
         } else {

@@ -7,16 +7,23 @@ use ratatui::{
 
 pub struct QueryParams;
 
+pub struct QueryParamsProps<'a> {
+    pub area: Rect,
+    pub active: bool,
+    pub value: &'a str,
+    pub cursor: usize,
+    pub show_cursor: bool,
+}
+
 impl QueryParams {
-    pub fn render(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        active: bool,
-        value: &str,
-        cursor: usize,
-        show_cursor: bool,
-    ) {
+    pub fn render(&self, frame: &mut Frame, props: QueryParamsProps<'_>) {
+        let QueryParamsProps {
+            area,
+            active,
+            value,
+            cursor,
+            show_cursor,
+        } = props;
         let title = if active {
             "● Query Params"
         } else {
