@@ -59,6 +59,7 @@ Request helpers:
 
 Response:
 - `j` / `k`: scroll response body down/up
+- `h` / `l`: scroll response body left/right
 
 ## Request input format
 

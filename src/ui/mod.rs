@@ -17,7 +17,7 @@ use crate::ui::sections::{
     query_params::{QueryParams, QueryParamsProps},
     request_body::{RequestBody, RequestBodyProps},
     request_headers::{RequestHeaders, RequestHeadersProps},
-    response_body::{ResponseBody, ResponseBodyProps},
+    response_body::ResponseBody,
     response_headers::{ResponseHeaders, ResponseHeadersProps},
     status_bar::{StatusBar, StatusBarProps},
     url_bar::UrlBar,
@@ -105,10 +105,7 @@ impl<'a> App<'a> {
 
         // Response sections (right)
         self.app_state.response_viewport_height = l.res_body.height.saturating_sub(2);
-        self.app_state.response_line_count = ResponseBody.line_count(
-            self.app_state.response_body.as_deref(),
-            self.app_state.response_content_type.as_deref(),
-        );
+        self.app_state.response_viewport_width = l.res_body.width.saturating_sub(2);
         let max_scroll = self
             .app_state
             .response_line_count
@@ -117,16 +114,24 @@ impl<'a> App<'a> {
         if self.app_state.response_scroll > max_scroll {
             self.app_state.response_scroll = max_scroll;
         }
+        let max_scroll_x = self
+            .app_state
+            .response_max_line_width
+            .saturating_sub(self.app_state.response_viewport_width as usize);
+        let max_scroll_x = (max_scroll_x.min(u16::MAX as usize)) as u16;
+        if self.app_state.response_scroll_x > max_scroll_x {
+            self.app_state.response_scroll_x = max_scroll_x;
+        }
 
         ResponseBody.render(
             frame,
-            ResponseBodyProps {
-                area: l.res_body,
-                active: active_panel == ActivePanel::ResBody,
-                body: self.app_state.response_body.as_deref(),
-                content_type: self.app_state.response_content_type.as_deref(),
-                scroll: self.app_state.response_scroll,
-            },
+            l.res_body,
+            active_panel == ActivePanel::ResBody,
+            self.app_state.response_body.as_deref(),
+            self.app_state.response_formatted_body.as_deref(),
+            self.app_state.response_content_type.as_deref(),
+            self.app_state.response_scroll,
+            self.app_state.response_scroll_x,
         );
 
         ResponseHeaders.render(

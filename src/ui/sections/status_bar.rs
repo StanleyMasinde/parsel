@@ -38,7 +38,9 @@ impl StatusBar {
             ActivePanel::ResBody => "ResBody",
         };
         let hint = match mode {
-            Mode::Normal => "i: Edit • Enter: Send • b/B: Body • Tab/Shift+Tab: Focus",
+            Mode::Normal => {
+                "i: Edit • Enter: Send • b/B: Body • Tab/Shift+Tab: Focus • h/l: ResBody X-Scroll"
+            }
             Mode::Edit => "Esc: Normal • Enter: Send (URL) • Ctrl+Enter: Send",
         };
         let status = if let Some(error) = error {
