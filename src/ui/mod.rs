@@ -29,7 +29,9 @@ impl<'a> App<'a> {
 
             if event::poll(Duration::from_millis(50)).unwrap() {
                 let event = event::read().unwrap();
-                if let event::Event::Key(key_event) = event { self.handle_key_events(key_event) }
+                if let event::Event::Key(key_event) = event {
+                    self.handle_key_events(key_event)
+                }
             }
 
             self.poll_network();
