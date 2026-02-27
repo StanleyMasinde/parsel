@@ -2,6 +2,7 @@ use ratatui::{
     Frame,
     layout::Rect,
     style::{Color, Style},
+    text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
 
@@ -24,17 +25,20 @@ impl ResponseHeaders {
             headers,
             response_time,
         } = props;
-        let mut title_text: String = "Response headers".to_string();
+        let indicator = if active { "● " } else { "○ " };
+        let mut title_spans = vec![
+            Span::raw(indicator),
+            Span::raw("Response headers"),
+        ];
 
         if response_time > 0 {
-            title_text = format!("Response headers | {}ms ", response_time);
+            let response_time_color = response_time_color(response_time);
+            title_spans.push(Span::raw(" | "));
+            title_spans.push(Span::styled(
+                format!("{response_time}ms"),
+                Style::default().fg(response_time_color),
+            ));
         }
-
-        let title = if active {
-            format!("● {title_text}")
-        } else {
-            format!("○ {title_text}")
-        };
 
         let border_style = if active {
             Style::default().fg(Color::Cyan)
@@ -58,9 +62,19 @@ impl ResponseHeaders {
                 Block::default()
                     .borders(Borders::ALL)
                     .border_style(border_style)
-                    .title(title),
+                    .title(Line::from(title_spans)),
             ),
             area,
         );
+    }
+}
+
+fn response_time_color(response_time: u128) -> Color {
+    if response_time <= 300 {
+        Color::Green
+    } else if response_time <= 1000 {
+        Color::Rgb(255, 191, 0)
+    } else {
+        Color::Red
     }
 }
