@@ -13,9 +13,14 @@ use ratatui::{
 };
 
 use crate::ui::sections::{
-    method::Method, query_params::QueryParams, request_body::RequestBody,
-    request_headers::RequestHeaders, response_body::ResponseBody,
-    response_headers::ResponseHeaders, status_bar::StatusBar, url_bar::UrlBar,
+    method::{Method, MethodProps},
+    query_params::{QueryParams, QueryParamsProps},
+    request_body::{RequestBody, RequestBodyProps},
+    request_headers::{RequestHeaders, RequestHeadersProps},
+    response_body::{ResponseBody, ResponseBodyProps},
+    response_headers::{ResponseHeaders, ResponseHeadersProps},
+    status_bar::{StatusBar, StatusBarProps},
+    url_bar::UrlBar,
 };
 use crate::{
     types::app::{ActivePanel, App, Mode},
@@ -49,9 +54,11 @@ impl<'a> App<'a> {
         // Method box
         Method.render(
             frame,
-            l.method,
-            active_panel == ActivePanel::Url,
-            self.method_label(),
+            MethodProps {
+                area: l.method,
+                active: active_panel == ActivePanel::Url,
+                label: self.method_label(),
+            },
         );
 
         // URL bar
@@ -61,30 +68,39 @@ impl<'a> App<'a> {
         // Request sections (left)
         QueryParams.render(
             frame,
-            l.req_query,
-            active_panel == ActivePanel::ReqQuery,
-            self.req_query_input.value(),
-            self.req_query_input.cursor(),
-            self.app_state.mode == Mode::Edit && active_panel == ActivePanel::ReqQuery,
+            QueryParamsProps {
+                area: l.req_query,
+                active: active_panel == ActivePanel::ReqQuery,
+                value: self.req_query_input.value(),
+                cursor: self.req_query_input.cursor(),
+                show_cursor: self.app_state.mode == Mode::Edit
+                    && active_panel == ActivePanel::ReqQuery,
+            },
         );
 
         RequestHeaders.render(
             frame,
-            l.req_headers,
-            active_panel == ActivePanel::ReqHeaders,
-            self.req_headers_input.value(),
-            self.req_headers_input.cursor(),
-            self.app_state.mode == Mode::Edit && active_panel == ActivePanel::ReqHeaders,
+            RequestHeadersProps {
+                area: l.req_headers,
+                active: active_panel == ActivePanel::ReqHeaders,
+                value: self.req_headers_input.value(),
+                cursor: self.req_headers_input.cursor(),
+                show_cursor: self.app_state.mode == Mode::Edit
+                    && active_panel == ActivePanel::ReqHeaders,
+            },
         );
 
         RequestBody.render(
             frame,
-            l.req_body,
-            active_panel == ActivePanel::ReqBody,
-            self.req_body_input.value(),
-            self.req_body_input.cursor(),
-            self.app_state.mode == Mode::Edit && active_panel == ActivePanel::ReqBody,
-            self.body_content_type(),
+            RequestBodyProps {
+                area: l.req_body,
+                active: active_panel == ActivePanel::ReqBody,
+                value: self.req_body_input.value(),
+                cursor: self.req_body_input.cursor(),
+                show_cursor: self.app_state.mode == Mode::Edit
+                    && active_panel == ActivePanel::ReqBody,
+                content_type: self.body_content_type(),
+            },
         );
 
         // Response sections (right)
@@ -104,30 +120,36 @@ impl<'a> App<'a> {
 
         ResponseBody.render(
             frame,
-            l.res_body,
-            active_panel == ActivePanel::ResBody,
-            self.app_state.response_body.as_deref(),
-            self.app_state.response_content_type.as_deref(),
-            self.app_state.response_scroll,
+            ResponseBodyProps {
+                area: l.res_body,
+                active: active_panel == ActivePanel::ResBody,
+                body: self.app_state.response_body.as_deref(),
+                content_type: self.app_state.response_content_type.as_deref(),
+                scroll: self.app_state.response_scroll,
+            },
         );
 
         ResponseHeaders.render(
             frame,
-            l.res_headers,
-            active_panel == ActivePanel::ResHeaders,
-            self.app_state.response_status.as_deref(),
-            self.app_state.response_headers.as_deref(),
-            self.app_state.response_time,
+            ResponseHeadersProps {
+                area: l.res_headers,
+                active: active_panel == ActivePanel::ResHeaders,
+                status: self.app_state.response_status.as_deref(),
+                headers: self.app_state.response_headers.as_deref(),
+                response_time: self.app_state.response_time,
+            },
         );
 
         // Status bar (bottom)
         StatusBar.render(
             frame,
-            l.status,
-            self.app_state.mode,
-            active_panel,
-            self.app_state.is_loading,
-            self.app_state.error.as_deref(),
+            StatusBarProps {
+                area: l.status,
+                mode: self.app_state.mode,
+                active_panel,
+                is_loading: self.app_state.is_loading,
+                error: self.app_state.error.as_deref(),
+            },
         );
 
         if self.app_state.is_loading {
