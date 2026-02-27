@@ -72,8 +72,11 @@ pub struct AppState {
     pub response_headers: Option<String>,
     pub response_content_type: Option<String>,
     pub response_scroll: u16,
+    pub response_scroll_x: u16,
     pub response_viewport_height: u16,
+    pub response_viewport_width: u16,
     pub response_line_count: usize,
+    pub response_max_line_width: usize,
     pub(crate) response_time: u128,
 }
 
@@ -215,6 +218,7 @@ impl<'a> App<'a> {
         self.app_state.response_headers = None;
         self.app_state.response_content_type = None;
         self.app_state.response_scroll = 0;
+        self.app_state.response_scroll_x = 0;
 
         let request = self.request.clone();
         let method = self.request.method.clone();
@@ -347,6 +351,7 @@ impl<'a> App<'a> {
                 self.app_state.response_headers = Some(headers);
             }
             self.app_state.response_scroll = 0;
+            self.app_state.response_scroll_x = 0;
             return;
         }
 

@@ -75,6 +75,7 @@ impl ResponseBody {
         body: Option<&str>,
         content_type: Option<&str>,
         scroll: u16,
+        scroll_x: u16,
     ) {
         let title = if active {
             "● Response"
@@ -96,7 +97,7 @@ impl ResponseBody {
             Text::from(content)
         };
         frame.render_widget(
-            Paragraph::new(text).scroll((scroll, 0)).block(
+            Paragraph::new(text).scroll((scroll, scroll_x)).block(
                 Block::default()
                     .borders(Borders::ALL)
                     .border_style(border_style)
@@ -112,6 +113,13 @@ impl ResponseBody {
         let content = formatted.as_deref().unwrap_or(content);
         let count = content.lines().count();
         if count == 0 { 1 } else { count }
+    }
+
+    pub fn max_line_width(&self, body: Option<&str>, content_type: Option<&str>) -> usize {
+        let content = body.unwrap_or("No response yet\n\nPress Enter to send request");
+        let formatted = format_body(content, content_type);
+        let content = formatted.as_deref().unwrap_or(content);
+        content.lines().map(|line| line.chars().count()).max().unwrap_or(1)
     }
 }
 

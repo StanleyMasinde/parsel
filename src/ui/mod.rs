@@ -87,7 +87,12 @@ impl<'a> App<'a> {
 
         // Response sections (right)
         self.app_state.response_viewport_height = l.res_body.height.saturating_sub(2);
+        self.app_state.response_viewport_width = l.res_body.width.saturating_sub(2);
         self.app_state.response_line_count = ResponseBody.line_count(
+            self.app_state.response_body.as_deref(),
+            self.app_state.response_content_type.as_deref(),
+        );
+        self.app_state.response_max_line_width = ResponseBody.max_line_width(
             self.app_state.response_body.as_deref(),
             self.app_state.response_content_type.as_deref(),
         );
@@ -99,6 +104,14 @@ impl<'a> App<'a> {
         if self.app_state.response_scroll > max_scroll {
             self.app_state.response_scroll = max_scroll;
         }
+        let max_scroll_x = self
+            .app_state
+            .response_max_line_width
+            .saturating_sub(self.app_state.response_viewport_width as usize);
+        let max_scroll_x = (max_scroll_x.min(u16::MAX as usize)) as u16;
+        if self.app_state.response_scroll_x > max_scroll_x {
+            self.app_state.response_scroll_x = max_scroll_x;
+        }
 
         ResponseBody.render(
             frame,
@@ -107,6 +120,7 @@ impl<'a> App<'a> {
             self.app_state.response_body.as_deref(),
             self.app_state.response_content_type.as_deref(),
             self.app_state.response_scroll,
+            self.app_state.response_scroll_x,
         );
 
         ResponseHeaders.render(
