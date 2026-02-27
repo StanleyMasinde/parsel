@@ -47,10 +47,7 @@ impl RequestBody {
             if area.height > 2 {
                 let line = line.min(area.height.saturating_sub(2) as usize);
                 let col = col.min(area.width.saturating_sub(2) as usize);
-                frame.set_cursor_position((
-                    area.x + col as u16 + 1,
-                    area.y + line as u16 + 1,
-                ));
+                frame.set_cursor_position((area.x + col as u16 + 1, area.y + line as u16 + 1));
             }
         }
     }
