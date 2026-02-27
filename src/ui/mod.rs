@@ -29,7 +29,9 @@ impl<'a> App<'a> {
 
             if event::poll(Duration::from_millis(50)).unwrap() {
                 let event = event::read().unwrap();
-                if let event::Event::Key(key_event) = event { self.handle_key_events(key_event) }
+                if let event::Event::Key(key_event) = event {
+                    self.handle_key_events(key_event)
+                }
             }
 
             self.poll_network();
@@ -88,14 +90,6 @@ impl<'a> App<'a> {
         // Response sections (right)
         self.app_state.response_viewport_height = l.res_body.height.saturating_sub(2);
         self.app_state.response_viewport_width = l.res_body.width.saturating_sub(2);
-        self.app_state.response_line_count = ResponseBody.line_count(
-            self.app_state.response_body.as_deref(),
-            self.app_state.response_content_type.as_deref(),
-        );
-        self.app_state.response_max_line_width = ResponseBody.max_line_width(
-            self.app_state.response_body.as_deref(),
-            self.app_state.response_content_type.as_deref(),
-        );
         let max_scroll = self
             .app_state
             .response_line_count
@@ -118,6 +112,7 @@ impl<'a> App<'a> {
             l.res_body,
             active_panel == ActivePanel::ResBody,
             self.app_state.response_body.as_deref(),
+            self.app_state.response_formatted_body.as_deref(),
             self.app_state.response_content_type.as_deref(),
             self.app_state.response_scroll,
             self.app_state.response_scroll_x,

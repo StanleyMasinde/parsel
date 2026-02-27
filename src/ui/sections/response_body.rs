@@ -73,6 +73,7 @@ impl ResponseBody {
         area: Rect,
         active: bool,
         body: Option<&str>,
+        formatted_body: Option<&str>,
         content_type: Option<&str>,
         scroll: u16,
         scroll_x: u16,
@@ -88,11 +89,9 @@ impl ResponseBody {
             Style::default()
         };
 
-        let content = body.unwrap_or("No response yet\n\nPress Enter to send request");
-        let formatted = format_body(content, content_type);
-        let content = formatted.as_deref().unwrap_or(content);
+        let content = display_content(body, formatted_body, content_type);
         let text = if body.is_some() {
-            highlight_body(content, content_type).unwrap_or_else(|| Text::from(content))
+            highlight_body(&content, content_type).unwrap_or_else(|| Text::from(content))
         } else {
             Text::from(content)
         };
@@ -107,20 +106,57 @@ impl ResponseBody {
         );
     }
 
-    pub fn line_count(&self, body: Option<&str>, content_type: Option<&str>) -> usize {
-        let content = body.unwrap_or("No response yet\n\nPress Enter to send request");
-        let formatted = format_body(content, content_type);
-        let content = formatted.as_deref().unwrap_or(content);
+    pub fn line_count(
+        &self,
+        body: Option<&str>,
+        formatted_body: Option<&str>,
+        content_type: Option<&str>,
+    ) -> usize {
+        let content = display_content(body, formatted_body, content_type);
         let count = content.lines().count();
         if count == 0 { 1 } else { count }
     }
 
-    pub fn max_line_width(&self, body: Option<&str>, content_type: Option<&str>) -> usize {
-        let content = body.unwrap_or("No response yet\n\nPress Enter to send request");
-        let formatted = format_body(content, content_type);
-        let content = formatted.as_deref().unwrap_or(content);
-        content.lines().map(|line| line.chars().count()).max().unwrap_or(1)
+    pub fn max_line_width(
+        &self,
+        body: Option<&str>,
+        formatted_body: Option<&str>,
+        content_type: Option<&str>,
+        max_line_width_cache: Option<usize>,
+    ) -> usize {
+        max_line_width_cache.unwrap_or_else(|| {
+            let content = display_content(body, formatted_body, content_type);
+            content
+                .lines()
+                .map(|line| line.chars().count())
+                .max()
+                .unwrap_or(1)
+        })
     }
+}
+
+pub fn format_for_display(body: Option<&str>, content_type: Option<&str>) -> Option<String> {
+    let body = body?;
+    format_body(body, content_type)
+}
+
+fn display_content<'a>(
+    body: Option<&'a str>,
+    formatted_body: Option<&'a str>,
+    content_type: Option<&str>,
+) -> std::borrow::Cow<'a, str> {
+    if let Some(formatted) = formatted_body {
+        return std::borrow::Cow::Borrowed(formatted);
+    }
+
+    let content = body.unwrap_or("No response yet\n\nPress Enter to send request");
+    if body.is_some() {
+        if let Some(formatted) = format_body(content, content_type) {
+            return std::borrow::Cow::Owned(formatted);
+        }
+    }
+
+    std::borrow::Cow::Borrowed(content)
 }
 
 fn highlight_body(body: &str, content_type: Option<&str>) -> Option<Text<'static>> {

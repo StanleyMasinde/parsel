@@ -9,6 +9,7 @@ use ratatui::crossterm::event::KeyEvent;
 use tui_input::{Input, InputRequest};
 
 use crate::types::input_handler::{InputHandler, InputState};
+use crate::ui::sections::response_body::{ResponseBody, format_for_display};
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub enum Mode {
@@ -71,12 +72,14 @@ pub struct AppState {
     pub response_status: Option<String>,
     pub response_headers: Option<String>,
     pub response_content_type: Option<String>,
+    pub response_formatted_body: Option<String>,
     pub response_scroll: u16,
     pub response_scroll_x: u16,
     pub response_viewport_height: u16,
     pub response_viewport_width: u16,
     pub response_line_count: usize,
     pub response_max_line_width: usize,
+    pub response_max_line_width_cache: Option<usize>,
     pub(crate) response_time: u128,
 }
 
@@ -217,8 +220,11 @@ impl<'a> App<'a> {
         self.app_state.response_status = None;
         self.app_state.response_headers = None;
         self.app_state.response_content_type = None;
+        self.app_state.response_formatted_body = None;
+        self.app_state.response_max_line_width_cache = None;
         self.app_state.response_scroll = 0;
         self.app_state.response_scroll_x = 0;
+        self.refresh_response_body_cache();
 
         let request = self.request.clone();
         let method = self.request.method.clone();
@@ -352,6 +358,7 @@ impl<'a> App<'a> {
             }
             self.app_state.response_scroll = 0;
             self.app_state.response_scroll_x = 0;
+            self.refresh_response_body_cache();
             return;
         }
 
@@ -363,6 +370,17 @@ impl<'a> App<'a> {
         if let Ok(request_time) = self.elapsed_rx.try_recv() {
             self.app_state.response_time = request_time
         }
+    }
+
+    fn refresh_response_body_cache(&mut self) {
+        let body = self.app_state.response_body.as_deref();
+        let content_type = self.app_state.response_content_type.as_deref();
+        self.app_state.response_formatted_body = format_for_display(body, content_type);
+        let formatted = self.app_state.response_formatted_body.as_deref();
+        self.app_state.response_line_count = ResponseBody.line_count(body, formatted, content_type);
+        let max_line_width = ResponseBody.max_line_width(body, formatted, content_type, None);
+        self.app_state.response_max_line_width = max_line_width;
+        self.app_state.response_max_line_width_cache = Some(max_line_width);
     }
 }
 
