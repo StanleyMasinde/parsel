@@ -35,10 +35,10 @@ impl<'b, 'a> InputHandler<'b, 'a> {
             KeyCode::End => {}
             KeyCode::PageUp => {}
             KeyCode::PageDown => {}
-            KeyCode::Tab | KeyCode::Char('j') | KeyCode::Char('l') => {
+            KeyCode::Tab => {
                 self.app.app_state.active_panel = self.app.app_state.active_panel.next();
             }
-            KeyCode::BackTab | KeyCode::Char('k') | KeyCode::Char('h') => {
+            KeyCode::BackTab => {
                 self.app.app_state.active_panel = self.app.app_state.active_panel.prev();
             }
             KeyCode::Delete => {}
@@ -53,6 +53,44 @@ impl<'b, 'a> InputHandler<'b, 'a> {
                         | ActivePanel::ReqBody
                 ) {
                     self.app.app_state.mode = Mode::Edit;
+                }
+            }
+            KeyCode::Char('j') => {
+                if self.app.app_state.active_panel == ActivePanel::ResBody {
+                    let max_scroll = self
+                        .app
+                        .app_state
+                        .response_line_count
+                        .saturating_sub(self.app.app_state.response_viewport_height as usize);
+                    let max_scroll = (max_scroll.min(u16::MAX as usize)) as u16;
+                    if self.app.app_state.response_scroll < max_scroll {
+                        self.app.app_state.response_scroll += 1;
+                    }
+                }
+            }
+            KeyCode::Char('k') => {
+                if self.app.app_state.active_panel == ActivePanel::ResBody {
+                    self.app.app_state.response_scroll =
+                        self.app.app_state.response_scroll.saturating_sub(1);
+                }
+            }
+            KeyCode::Char('h') => {
+                if self.app.app_state.active_panel == ActivePanel::ResBody {
+                    self.app.app_state.response_scroll_x =
+                        self.app.app_state.response_scroll_x.saturating_sub(1);
+                }
+            }
+            KeyCode::Char('l') => {
+                if self.app.app_state.active_panel == ActivePanel::ResBody {
+                    let max_scroll_x = self
+                        .app
+                        .app_state
+                        .response_max_line_width
+                        .saturating_sub(self.app.app_state.response_viewport_width as usize);
+                    let max_scroll_x = (max_scroll_x.min(u16::MAX as usize)) as u16;
+                    if self.app.app_state.response_scroll_x < max_scroll_x {
+                        self.app.app_state.response_scroll_x += 1;
+                    }
                 }
             }
             KeyCode::Char('m') => {

@@ -44,8 +44,6 @@ Workflow:
 
 Global (Normal mode):
 - `Tab` / `Shift+Tab`: next/previous panel
-- `j` / `l`: next panel (Vim-style aliases)
-- `k` / `h`: previous panel (Vim-style aliases)
 - `Enter`: send request
 - `q`: quit
 
@@ -58,6 +56,10 @@ Editing:
 Request helpers:
 - `m` / `M`: next/previous HTTP method
 - `b` / `B`: next/previous body mode
+
+Response:
+- `j` / `k`: scroll response body down/up
+- `h` / `l`: scroll response body left/right
 
 ## Request input format
 
