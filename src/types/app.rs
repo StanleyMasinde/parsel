@@ -66,7 +66,7 @@ pub struct AppState {
     pub mode: Mode,
     pub active_panel: ActivePanel,
     pub body_mode: BodyMode,
-    pub(crate) is_loading: bool,
+    pub is_loading: bool,
     pub error: Option<String>,
     pub response_body: Option<String>,
     pub response_status: Option<String>,
@@ -80,7 +80,7 @@ pub struct AppState {
     pub response_line_count: usize,
     pub response_max_line_width: usize,
     pub response_max_line_width_cache: Option<usize>,
-    pub(crate) response_time: u128,
+    pub response_time: u128,
 }
 
 #[derive(Debug, Default, Clone)]
