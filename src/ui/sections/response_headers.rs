@@ -26,10 +26,7 @@ impl ResponseHeaders {
             response_time,
         } = props;
         let indicator = if active { "● " } else { "○ " };
-        let mut title_spans = vec![
-            Span::raw(indicator),
-            Span::raw("Response headers"),
-        ];
+        let mut title_spans = vec![Span::raw(indicator), Span::raw("Response headers")];
 
         if response_time > 0 {
             let response_time_color = response_time_color(response_time);
