@@ -158,11 +158,10 @@ fn display_content<'a>(
     }
 
     let content = body.unwrap_or("No response yet\n\nPress Enter to send request");
-    if body.is_some() {
-        if let Some(formatted) = format_body(content, content_type) {
+    if body.is_some()
+        && let Some(formatted) = format_body(content, content_type) {
             return std::borrow::Cow::Owned(formatted);
         }
-    }
 
     std::borrow::Cow::Borrowed(content)
 }
