@@ -194,6 +194,7 @@ pub fn run() {
     if let Some(url) = env::args().nth(1) {
         application = application.with_default_url(&url);
     }
+
     ratatui::run(|terminal| application.run(terminal))
 }
 
