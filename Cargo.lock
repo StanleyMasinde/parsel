@@ -1044,7 +1044,6 @@ dependencies = [
  "once_cell",
  "ratatui",
  "serde_json",
- "tree-sitter",
  "tree-sitter-highlight",
  "tree-sitter-html",
  "tree-sitter-json",
